@@ -1,1 +1,1 @@
-# GOFish
+# GO Fish
