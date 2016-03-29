@@ -1,0 +1,5 @@
+GOFish
+main.o
+run.o
+sfs.o
+shared.o
