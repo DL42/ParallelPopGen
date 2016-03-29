@@ -1,8 +1,10 @@
 # GO Fish v0.1
 
+Through CUDA, GO Fish should run on Mac OSX, Linux, and Windows operating systems. 
+
 GO Fish requires an NVIDIA GPU with a minimum of compute capability 3.0. [List of NVIDIA GPUs.](https://developer.nvidia.com/cuda-gpus) If you have a GPU with higher compute capability than 3.0 you can replace the -arch=sm_30 with -arch=sm_35 or -arch=sm_50 or -arch=sm_52 depending on your GPU. GO Fish will run with -arch=sm_30 on higher compute capability GPUs, but *may* run faster with the flag specific to your GPU. 
 
-[Install CUDA Toolkit 6.5.](https://developer.nvidia.com/cuda-toolkit-65) I have not yet tested GO Fish on toolkit 7.0 or higher. 
+[Install CUDA Toolkit 6.5.](https://developer.nvidia.com/cuda-toolkit-65) I have not yet tested GO Fish on Toolkit 7.0 or higher. 
 
 Once installed, to add nvcc (the CUDA compiler) to your Terminal's Path, add the following to your .bash_profile or .bashrc:
 export PATH=$PATH:/usr/local/cuda/bin
