@@ -17,4 +17,4 @@ Currently the code is set to run the speed test described [in the GO Fish paper.
 
 To compile the code into an executable (GOFish), navigate your terminal to the GOFish folder, type make. To delete the executable and object files, type make clean. 
 
-The make file creates an executable which, for the OS it is compiled on, will run on any NVIDIA GPU compute architecture from 3.0 to 5.2 and will JIT compile for any architecture above 5.2. To decrease compile time and executable size, you can delete any —-generate-code arch=compute_xx,code=sm_xx flag which does not correspond to your GPU's architecture.
+The make file creates an executable which, for the OS it is compiled on, will run on any NVIDIA GPU compute architecture from 3.0 to 5.2 and will JIT compile for any architecture above 5.2. To decrease compile time and executable size, you can delete all of the —-generate-code arch=compute_xx,code=sm_xx flags which do not correspond to your GPU's architecture.
