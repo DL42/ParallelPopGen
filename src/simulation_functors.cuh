@@ -44,7 +44,7 @@ __host__ __device__ __forceinline__ float population_specific_selection<Functor_
 template <typename Functor_sel1, typename Functor_sel2>
 piecewise_selection<Functor_sel1, Functor_sel2>::piecewise_selection() : inflection_point(0), generation_shift(0) { s1 = Functor_sel1(); s2 = Functor_sel2(); }
 template <typename Functor_sel1, typename Functor_sel2>
-piecewise_selection<Functor_sel1, Functor_sel2>::piecewise_selection(Functor_sel1 s1_in, Functor_sel2 s2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { s1 = s1_in; s2 = s2_in(); }
+piecewise_selection<Functor_sel1, Functor_sel2>::piecewise_selection(Functor_sel1 s1_in, Functor_sel2 s2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { s1 = s1_in; s2 = s2_in; }
 template <typename Functor_sel1, typename Functor_sel2>
 __host__ __device__ __forceinline__ float piecewise_selection<Functor_sel1, Functor_sel2>::operator()(const int population, const int generation, const float freq) const{
 	if(generation >= inflection_point+generation_shift){ return s2(population, generation-generation_shift, freq) ; }
@@ -82,7 +82,7 @@ __host__ __forceinline__ float population_specific_parameter<Functor_p,Functor_p
 template <typename Functor_p1, typename Functor_p2>
 piecewise_parameter<Functor_p1, Functor_p2>::piecewise_parameter() : inflection_point(0), generation_shift(0) { p1 = Functor_p1(); p2 = Functor_p2(); }
 template <typename Functor_p1, typename Functor_p2>
-piecewise_parameter<Functor_p1, Functor_p2>::piecewise_parameter(Functor_p1 p1_in, Functor_p2 p2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { p1 = p1_in; p2 = p2_in(); }
+piecewise_parameter<Functor_p1, Functor_p2>::piecewise_parameter(Functor_p1 p1_in, Functor_p2 p2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { p1 = p1_in; p2 = p2_in; }
 template <typename Functor_p1, typename Functor_p2>
 __host__ __forceinline__ float piecewise_parameter<Functor_p1, Functor_p2>::operator()(const int population, const int generation) const{
 	if(generation >= inflection_point+generation_shift){ return p2(population, generation-generation_shift) ; }
@@ -133,7 +133,7 @@ __host__ __device__  __forceinline__ int population_specific_demography<Functor_
 template <typename Functor_p1, typename Functor_p2>
 piecewise_demography<Functor_p1, Functor_p2>::piecewise_demography() : inflection_point(0), generation_shift(0) { p1 = Functor_p1(); p2 = Functor_p2(); }
 template <typename Functor_p1, typename Functor_p2>
-piecewise_demography<Functor_p1, Functor_p2>::piecewise_demography(Functor_p1 p1_in, Functor_p2 p2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { p1 = p1_in; p2 = p2_in(); }
+piecewise_demography<Functor_p1, Functor_p2>::piecewise_demography(Functor_p1 p1_in, Functor_p2 p2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { p1 = p1_in; p2 = p2_in; }
 template <typename Functor_p1, typename Functor_p2>
 __host__ __device__  __forceinline__ int piecewise_demography<Functor_p1, Functor_p2>::operator()(const int population, const int generation) const{
 	if(generation >= inflection_point+generation_shift){ return p2(population, generation-generation_shift) ; }
