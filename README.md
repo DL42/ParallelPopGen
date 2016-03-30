@@ -6,7 +6,7 @@ GO Fish requires an NVIDIA GPU with a minimum of compute capability 3.0. [List o
 
 [Install CUDA Toolkit 6.5.](https://developer.nvidia.com/cuda-toolkit-65) I have not yet tested GO Fish on Toolkit 7.0 or higher. For those with Maxwell 2 GPUs (GeForce GTX9xx GPUs) first install the previous toolkit to get the drivers, then [download CUDA Toolkit 6.5 here to get the updated toolkit.](https://developer.nvidia.com/cuda-downloads-geforce-gtx9xx)
 
-Once installed for Unix systems, add nvcc (the CUDA compiler) to your Unix Terminal's Path by adding the following to your .bash_profile or .bashrc:
+Once installed, then for Unix systems (Mac + Linux), add nvcc (the CUDA compiler) to your Terminal's Path by adding the following to your .bash_profile or .bashrc:
 
 export PATH=$PATH:/usr/local/cuda/bin  
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
