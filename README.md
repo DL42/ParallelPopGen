@@ -6,11 +6,12 @@ GO Fish requires an NVIDIA GPU with a minimum of compute capability 3.0. [List o
 
 [Install CUDA Toolkit 6.5.](https://developer.nvidia.com/cuda-toolkit-65) I have not yet tested GO Fish on Toolkit 7.0 or higher. For those with Maxwell 2 GPUs (GeForce GTX9xx GPUs) first install the previous toolkit to get the drivers, then [download CUDA Toolkit 6.5 here to get the updated toolkit.](https://developer.nvidia.com/cuda-downloads-geforce-gtx9xx)
 
-Once installed, to add nvcc (the CUDA compiler) to your Terminal's Path, add the following to your .bash_profile or .bashrc:
-export PATH=$PATH:/usr/local/cuda/bin
+Once installed for Unix systems, add nvcc (the CUDA compiler) to your Unix Terminal's Path by adding the following to your .bash_profile or .bashrc:
+
+export PATH=$PATH:/usr/local/cuda/bin  
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
 
-Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc)
+Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems) 
 
 Currently the code is set to run the speed test described [in the GO Fish paper.](http://dx.doi.org/10.1101/042622) More scenario functions for demography, mutation, inbreeding, etc ...  are available for testing. At the moment, only a simple parallel histogram function is available to create a site frequency spectrum of a single population. 
 
