@@ -1,0 +1,46 @@
+# Description of Mac/Linux/Unix Makefile for serial_SFS_code.cpp. 
+#
+#############################
+# build_path := Where to build program and put executable (note: folder must already exist)
+# GSL := Location of GNU Scientific Library for Include (required, not included with ParallelPopGen)
+# GSL := Location of GNU Scientific Library for Linking (required, not included with ParallelPopGen)
+# EXEC_FILE := Name of executable 
+#
+# CC := Compiler path, in this case g++
+# CFLAGS := Compiler Flags: optimize most, fast math, add GSL include folder to include search path, compile
+#
+# all := Command 'make' or 'make all' builds executable file $(EXEC_FILE) in location $(build_path)/
+#
+# $(build_path)/serial_SFS_code.o: serial_SFS_code.cpp := Make target serial_SFS_code.o
+# 	Use g++ to compile source code into object
+#
+# $(build_path)/$(EXEC_FILE) := Make target executable EXEC_FILE which depends on serial_SFS_code.o 
+# 	Link objects and libraries into executable EXEC_FILE, $@ := $(build_path)/$(EXEC_FILE)
+#
+# .PHONY := Defines 'all' and 'clean' as not true targets (i.e. don't remake executable if can't find files called 'all' or 'clean')
+#
+# clean := Action to perform for command 'make clean'
+# 	Remove all serial_SFS_code.o and EXEC_FILE from build_path
+#############################
+
+build_path = ../../../build/example_speed
+GSL = -I ~/gsl1.16/ 
+GSL_L = -L ~/gsl1.16/.libs -lgsl
+EXEC_FILE = SerialSim
+
+CC = g++
+CFLAGS = -O3 -ffast-math $(GSL) -c
+
+all:$(build_path)/$(EXEC_FILE)
+
+$(build_path)/serial_SFS_code.o: serial_SFS_code.cpp
+	$(CC) $(CFLAGS) $< -o $@
+
+$(build_path)/$(EXEC_FILE): $(build_path)/serial_SFS_code.o
+
+	$(CC) $(GSL_L) $(build_path)/serial_SFS_code.o -o $@
+
+.PHONY: all clean
+
+clean:
+	rm -f $(build_path)/$(EXEC_FILE) $(build_path)/serial_SFS_code.o

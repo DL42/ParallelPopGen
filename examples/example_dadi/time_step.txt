@@ -1,0 +1,1 @@
+kept dadi.Integration.set_timescale_factor=1e-3, since those are the time steps I am taking as well.

@@ -1,0 +1,30 @@
+
+number of time samples: 2
+mutations in first time sample: 5288
+mutations in final time sample: 16736
+
+mutations from burn-in simulation
+ID	start frequency pop 1	start frequency pop 2	final frequency pop 1	final frequency pop 2
+(10213,0,6,0)	0.074	0.259	1	1
+(10880,0,47,0)	0.095	0.279	0.844	0.994
+(11951,0,18,0)	0.355	0.167	0.803	0.949
+(12621,0,15,0)	0.987	0.984	1	1
+(12714,1,20,0)	0	0.041	0	0
+(13316,1,88,0)	0.579	0.308	1	1
+(13404,0,121,0)	0.072	0.093	1	1
+(13486,0,173,0)	0.109	0.28	1	1
+(13611,0,50,0)	0.124	0.256	1	1
+(13699,1,64,0)	0.502	0.386	1	1
+
+mutations from scenario simulation
+ID	start frequency pop 1	start frequency pop 2	final frequency pop 1	final frequency pop 2
+(20001,0,34,0)	0	0	0.997	0.94
+(20001,0,66,0)	0	0	0.855	0.965
+(20001,1,38,0)	0	0	0.694	0.97
+(20001,1,47,0)	0	0	0.881	0.966
+(20001,1,54,0)	0	0	0.866	0.982
+(20001,1,70,0)	0	0	0.906	0.922
+(20001,1,100,0)	0	0	0.846	0.907
+(20001,1,154,0)	0	0	0.763	0.944
+(20002,0,85,0)	0	0	0.688	0.946
+(20002,0,112,0)	0	0	0.868	0.987

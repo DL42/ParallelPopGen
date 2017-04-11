@@ -1,0 +1,159 @@
+/*! \mainpage Getting Started 
+ * 
+ * Important links:\n
+ * \li \subpage README.md for installation and compilation instructions and change-log
+ * \li <a href="https://github.com/DL42/ParallelPopGen/issues">Bug Reporting, Feature Request, To Do, and Discussion</a> 
+ * \li <a href="https://github.com/DL42/ParallelPopGen/releases"> Download Stable Releases</a> 
+ * \li <a href="https://github.com/DL42/ParallelPopGen">GitHub repository for latest changes</a> 
+ * \tableofcontents
+ *
+ * 
+ * \section API API Overview
+ * Welcome to the manual for the Parallel PopGen Package (3P)! This is a library of CUDA C/C++ APIs for performing population genetics simulations and analyses on the GPU. Using the 3P APIs, complex, powerful, 
+ and fast simulations and analyses can be written in otherwise standard C++ - requiring no knowledge of parallel/GPU programming from the end-user. Below is a brief description of the information found in this manual, organized in the tabs above: 
+ * \li <a href="namespaces.html">Namespaces</a> provides all functions and classes related to an API (e.g. GO_Fish). 
+ * \li <a href="modules.html">Modules</a> page organizes the Sim_Model namespace into groups of functions (e.g. \ref selection) - each module describes the parameters and output of the function group and how to write custom simulation functions.
+ * \li <a href="files.html">Files</a> shows the file hierarchy, the functions and classes in each file, and the detailed description of each header file provides information on how to include the files for a project.
+ * \li <a href="annotated.html">Classes</a> shows all classes and structs organized by namespace.
+ * \li <a href="examples.html">Examples</a> provides code examples and custom makefiles found in the examples/ folder.
+ *
+ * 3P currently contains 3 APIs, each in its own namespace:
+ * \li GO_Fish: \copybrief GO_Fish 
+ * \li Sim_Model: \copybrief Sim_Model Sim_Model is optional as the user is free to write their own population genetics and simulation control functions following the rules laid out in each function group's <a href="modules.html">Module</a>.
+ * \li Spectrum: \copybrief Spectrum
+ * 
+ * The relevant header files are in the folder include/
+ * \li go_fish.cuh: \copybrief go_fish.cuh
+ * \li go_fish_data_struct.h: \copybrief go_fish_data_struct.h
+ * \li spectrum.h: \copybrief spectrum.h
+ *
+ * The implementations of these header files are in the source/ folder. All outside libraries used in the Parallel PopGen Package (beyond standard CUDA and C/C++ libs) are stored in the folder outside_libraries/ and are automatically included. 
+ * The examples in the examples/ folder show how to compile a project which using a 3P API (also covered in \ref README.md). 
+ * 
+ *
+ * \subsection Tips 
+ * For faster GO_Fish simulations:
+ * \li Play around with \ref GO_Fish::allele_trajectories::sim_constants::compact_interval. 
+ - The variable compact_interval determines when to trow away mutations that have been lost or fixed by all populations in the simulation. Raise it to do it less often, lower it for more often. Optimal compact intervals can only be determined 
+ heuristically - larger simulations (with more mutations) need to be compacted more often than smaller simulations, while faster GPUs with more cores need to compact less often than slower ones with fewer cores. \n\n 
+ * \li When simulating full allele_trajectories, turn off compact_interval. 
+ - To record the frequency of every mutation for every generation, pass Sim_Model::bool_on to GO_Fish::run_sim's parameter Functor_timesample take_sample and set
+ GO_Fish::allele_trajectories::sim_constants::compact_interval `= 0`. \n\n
+ * \li When simulating for the purposes of generating SFS (and other applications), scale the simulation by a reference population size to simulate fewer generations/smaller populations.
+ - See \ref Example2-DaDi and \ref δaδi for an examples and general how-to. \n\n
+ * \li GO_Fish::run_sim has an important <B>Pro tip</B> regarding input template functions.
+ * 
+ * (<B>Advanced users</B>) In implementation file shared.cuh, there are several variables that can be tuned: 
+ * \li `typedef r123::Philox4x32_R<10> P;`: <10> can be set as low as <8> for extra-speed.
+ - Philox is the random number generator for GO_Fish. The 10 refers to the number of bijections it performs to generate a new random number. The authors of Philox state that 8 is the lowest safe limit, but 10 is recommended for maximum speed.
+ Current default setting in shared.cuh is 10. \n\n
+ * \li `#define RNG_MEAN_BOUNDARY_NORM 6`: `RNG_MEAN_BOUNDARY_NORM` can be set between 1-33
+ - recommended setting is between 6-15, current default is 6. If the expected (mean) result of the RNG for the distribution is greater than RNG_MEAN_BOUNDARY_NORM, the normal approximation is used; less than RNG_MEAN_BOUNDARY_NORM, the poisson/
+ binomial distribution is used. Set higher and the distribution becomes closer to a true binomial at the cost of speed, makes very little to no difference (<< 1%) for many applications. \n\n
+ * \li `#define RNG_N_BOUNDARY_POIS_BINOM 100`: `RNG_N_BOUNDARY_POIS_BINOM` can be set between 1-200
+ - recommended setting is between 100-200, current default is 100. When simulating a binomial distribution, if the total number of trials, `n`, for the distribution is greater than RNG_N_BOUNDARY_POIS_BINOM, the poisson approximation is used; 
+ less than RNG_N_BOUNDARY_POIS_BINOM, the binomial distribution is used. The binomial calculation gets numerically unstable for large `n` >> 200.
+ *
+ * \subsection Troubleshooting  
+ * Use the embedded link for all <a href="https://github.com/DL42/ParallelPopGen/issues">bug reporting, feature requests, to do, and discussion.</a> Below is a description of the two kinds of errors to encounter during API use:
+ * \li API errors will be reported as: `function name: description`.
+ * \li CUDA errors will be reported as: `error # s file s line # generation # population #`, where `#` = number and `s` = string. 
+ - If a CUDA error is encountered, set `__DEBUG__` (shared.cuh line 23) to true - the program will run slower, but the 
+ error will be guaranteed to be reported with the correct file/line number/etc ... `__DEBUG__` set to true ensures that the CPU and GPU are always in-sync where normally the CPU is allowed to race ahead of the GPU and thus by the time an error 
+ from the GPU is reported, the CPU may be executing a different piece of code. If problem is rectified, make sure to turn `__DEBUG__` back to false to speed up program execution. A reported generation or population of -1 means that generation
+ or population was not relevant to the error. \n \n
+ *
+ - CUDA out-of-memory errors will typically be the result of a simulation/spectrum that is too big for the GPU's onboard memory. For instance, if running a GO_Fish simulation that starts in mutation-selection equilibrium 
+ (i.e. GO_Fish::allele_trajectories::sim_constants::init_mse `= true`) and the population size is too big, so that the program fails in function initialize_mse in go_fish_impl.cuh before the arrays in struct mutations are allocated, 
+ try rescaling the simulation as shown in \ref δaδi - either temporarily just for generation 0 with a couple of burn-in generations after all the parameters are reset (selection too!) or for the whole simulation. If there are too
+ many mutations, simply lower the number of independent sites in the simulation using GO_Fish::allele_trajectories::sim_constants::num_sites. 
+ *
+ * \subsection δaδi δaδi-to-GOFish Parameter Conversion
+ GO_Fish simulations are discrete time/discrete frequency simulations. That said, the parameters of such a simulation can be translated into the continuous time/continuous frequency paradigm of δaδi.
+ In δaδi, the main parameter is \p N<sub>ref</sub> - the reference population size of the initial population at time 0. Time, theta, selection, migration, and the population sizes of later generations/other populations
+ are all in reference to \p N<sub>ref</sub>. The list below covers the population genetics functions/variable in a GO_Fish simulation, and how to match that to the corresponding δaδi parameter. 
+ \ref Example2-DaDi gives a specific instance of an analogous δaδi and GO_Fish simulation with population scaling.
+ \subsubsection Inbreeding
+ Inbreeding functions return a float parameter, `F`, between 0 (outbred) and 1 (inbred) inclusive - see \ref in_mut_dom for more detail. In δaδi, populations are outbred, `F = 0`.
+ \subsubsection Dominance
+ Dominance functions return a float parameter, `h`, between -inf and +inf - see \ref in_mut_dom for more detail. \p h<sub>GOFish</sub> \p = \p h<sub>δaδi</sub>.
+ \subsubsection Selection
+ Selection functions return a selection coefficient, which is a float greater than or equal to -1 (lethal) - see \ref selection for more detail. In δaδi the selection parameter is the effective selection coefficient, \p gamma \p =
+ \p 2Ns, where the selection on alleles `AA`, `Aa`, `aa` are `1`, `1+2hs`, `1+2s` and `N` is the number of individuals. Thus the equivalent GO_Fish selection coefficient is \p s<sub>GOFish</sub> \p = \p 2*s<sub>δaδi</sub>. Sim_Model, 
+ like δaδi, has constructors in \ref selection that allow effective selection coefficients to be input into the simulation (e.g. Sim_Model::selection_constant). For an outbred population, `F = 0`, \p gamma<sub>GOFish</sub> \p = 
+ \p 2Ns<sub>GOFish</sub> \p = \p 2*2Ns<sub>δaδi</sub> \p = \p 2*gamma<sub>δaδi</sub>. Effective selection coefficients are invariant to population scaling - see \ref Demography.
+ \subsubsection Demography
+ Demography functions return a number of individuals, an integer between 0 and max 2<sup>32</sup>-1 inclusive - see \ref demography for more detail. Like in δaδi, population sizes in simulations can be scaled - doing so requires re-scaling migration rates,
+ the number of generations, and the mutation rate. If taking samples of the populations, it is best to choose a reference population size for the initial population, \p N<sub>ref_GOFish</sub>, such that the size(s) of the sampled population(s) 
+ are >> than the sample size, so that using the binomial is an appropriate choice of sampling distribution.
+ \subsubsection Migration 
+ Migration functions return a float, `m`, between 0 and 1 inclusive - see \ref migration for more detail. Both δaδi and GO_Fish use a conservative model of migration. In δaδi, the migration rate is scaled by the population size, 
+ so \p m<sub>GOFish</sub> \p = \p m<sub>δaδi</sub>\p /(2N<sub>ref_GOFish</sub>), where \p N<sub>ref_GOFish</sub> is the number of initial individuals in the reference population of the GO_Fish simulation. This automatically scales
+ migration rates for different reference population sizes.
+ \subsubsection generations Number of Generations 
+ The number of generations in the simulation is a constant integer between 0 and max 2<sup>32</sup>-1 inclusive - use \ref GO_Fish::allele_trajectories::sim_constants::num_generations to set the number of generations for a simulation. In
+ δaδi, time `T` is measured in units of \p 2N<sub>ref</sub>, so the corresponding number of generations in GO_Fish would be \p T*2N<sub>ref_GOFish</sub>. Thus, the number of generations in a simulation can be scaled by the population size. 
+ Similarly in δaδi Integration.py, one can set the variable \p dadi.Integration.set_timescale_factor \p = \p # where \p # \p = \p 1\p /(num_generations) so that a time step in the integration routine is equal to a discrete generation in the simulation.
+ \subsubsection mut_sites Mutation rate 
+ Mutation functions return a per-site, per-generation mutation rate, which a float parameter greater than 0 - see \ref in_mut_dom for more detail. If the simulation population sizes (\p N<sub>ref_GOFish</sub>) have been scaled relative to the actual 
+ population sizes \p N, then, to maintain the same polymorphism level (theta), set \p mu<sub>ref</sub> = \p mu<sub>actual</sub>*N\p /N<sub>ref_GOFish</sub>.
+ In δaδi, \p theta<sub>ref</sub>, defined as \p 4N<sub>ref</sub>mu, is often (not always) defined to be 1 for the diffusion calculations, then later fit to the data. GO_Fish does not actually use theta as a relevant parameter in the simulations, 
+ but the fitted δaδi mutation rates should be equivalent to the pre-scaled GO_Fish \p mu<sub>actual</sub>.  
+ \subsubsection numSites Number of Sites
+ The number of sites in the simulation is a constant float between 0 and +inf - use \ref GO_Fish::allele_trajectories::sim_constants::num_sites to set the number of independent sites for a simulation. While δaδi doesn't have this parameter, grid_size
+ is \em somewhat analogous in that the more sites there are in a GO_Fish simulation, then the less noise, the more precise the output of the simulation will be - similarly, the finer the grid size in δaδi, then the more accurate, the more precise the integration.
+ Other than being parameters of precision in their respective tools, they are otherwise quite different in intent.
+ */
+ 
+ /*! \example Example1-Speed 
+ * A simple, benchmarking scenario. \n\n
+ * Below code tests the speed of a neutral, constant population simulation on a GPU: 
+ * \includelineno examples/example_speed/run.cu 
+  * Below is the makefile:
+ * \includelineno examples/example_speed/makefile
+ */
+ 
+/*! \example Example2-DaDi
+ * Compares SFS generation using executable GOFish (GO_Fish and Spectrum) against δaδi. \n\n
+ * See subsection \ref δaδi in \ref index for how to translate parameters from δaδi to GO_Fish in general. 
+ * \image html examples/example_dadi/demography.jpg "Demography of population 0 (AF) and population 1 (EU)"
+ * A complex demographic scenario was chosen as a test case to compare the GO_Fish simulation against an already established SFS method, δaδi. 
+ The demographic model is from the YRI-CEU (AF-EU) δaδi example. Using δaδi parameterization to describe the model, the ancestral population, 
+ in mutation-selection equilibrium, undergoes an immediate expansion from \em N<sub>ref</sub> to 2\em N<sub>ref</sub> individuals. After time \em T1 (= 0.005) the population splits 
+ into two with a constant, equivalent migration, \em m<sub>EU-AF</sub> (= 1) between the now split populations. The second (EU) population undergoes a severe bottleneck 
+ of 0.05\em N<sub>ref</sub> when splitting from the first (AF) population, followed by exponential growth over time \em T2 (= 0.045) to size 5\em N<sub>ref</sub>. 
+ The mutations are weakly deleterious and co-dominant (2\em N<sub>ref</sub>s = -2, \em h =0.5), where 1001 samples were taken of the 
+ EU population. The spectrum was then normalized by the number of segregating sites. The corresponding GO Fish parameters for the evolutionary scenario, 
+ given a mutation rate of 1x10<sup>-9</sup> per site, 2x10<sup>9</sup> sites, and an initial population size, \em N<sub>ref</sub>, of 10,000, are: \em T1 = 0.005*2\em N<sub>ref</sub> = 100 generations, 
+ \em T2 = 900 generations, \em m<sub>EU-AF</sub> = 1/(2\em N<sub>ref</sub>) = 0.00005, 2\em N<sub>ref</sub>s = -4, \em h =0.5, and \em F = 0. As in δaδi, the population size/time can be scaled together and 
+ the simulation will generate the same normalized spectra.
+ * Below is the GO_Fish simulation and Spectrum SFS code:
+ * \includelineno examples/example_dadi/run.cu 
+ * Below is the corresponding δaδi code:
+ * \include examples/example_dadi/dadi_example.py
+ * Below is the makefile to create executable GOFish from examples/example_dadi/run.cu:
+ * \includelineno examples/example_dadi/makefile
+ */
+ 
+ /*! \example Example3-Compilation
+ * Compilation of different API features, including compilation. \n\n
+ * Function `run_migration_equilibrium_simulation`, implemented in examples/example_compilation/run.cu, runs a simulation given a mutation rate and outputs result into allele trajectory `a`.
+ The information from `a` is then copied to `b` and `a` is subsequently deleted. The information from `b` is then output to a file then to the terminal. \n\n
+ * The main purpose of this is to show that simulation parameters can be passed from a standard C++ program to a CUDA program (*.cu), where the GPU-accelerated simulation is run, and then the 
+ simulation results in the form of an allele trajectory can be passed back to the C++ program and manipulated. So accelerated simulations can be inserted into any current C/C++ project. go_fish_data_struct.h
+ is included in run.h (which is subsequently included in main.cpp).
+ * \includelineno examples/example_compilation/main.cpp
+ * The simulation starts off blank, running a burn-in simulation until equilibrium is reached, then running the scenario of interest.
+ * \includelineno examples/example_compilation/run.h
+ * The below code for example_compilation/run.cu must also include go_fish.cuh in order to run the simulations as including run.h only includes the GO_Fish data structures. 
+ * \includelineno examples/example_compilation/run.cu
+ * <B>Pro Tip:</B> A nice thing about CUDA is the flexibility it gives in compiling mixed C/C++ and CUDA programs. Below is an example where the entire program can alternatively be compiled
+ by NVCC (the NVIDIA CUDA compiler) - e.g. makefile_nvcc - or by g++ & NVCC where NVCC compiles just the GPU-accelerated portions and then hands the linking over g++ - e.g. makefile_gpp. The master
+ makefile controls which is called. This is useful if you are adding the simulation to your own project compiled with a certain compiler that you do not want to change for the code you have written. 
+ The CUDA code essentially becomes an accelerated library that you can use in your current project. Master makefile:
+ * \includelineno examples/example_compilation/makefile
+ * makefile_nvcc:
+ * \includelineno examples/example_compilation/makefile_nvcc
+ * makefile_gpp:
+ * \includelineno examples/example_compilation/makefile_gpp
+ */

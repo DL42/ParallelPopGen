@@ -1,0 +1,5 @@
+The serial simulation is a diploid, fully inbred, single population simulation. It is currently set to run the neutral simulations as outlined in the paper and is exactly equivalent to the haploid single population simulation with 2x the number of individuals that GO Fish is currently set to run. Though they produce very similar results, with different RNGs, the two programs do NOT produce *identical* outcomes in their random simulations.  
+
+The serial code is written in C++ and requires the GNU Scientific Library (gsl) to be installed. For the fastest possible run time, compile using flag -O3 and gsl should be compiled with flag -O3 -ffast-math. To add these flags to compiling gsl, before running make, run ./configure CFLAGS=-O3 -ffast-math. Further compilation instructions for gsl can be found in the accompanying INSTALL.txt document.
+
+Type make -f makefile_serial to compile serial simulation. 

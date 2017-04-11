@@ -1,0 +1,88 @@
+# Description of Mac/Linux/Unix Makefile for example_compilation using g++ to compile the C++ code and link objects into executable. 
+# NVCC compiles CUDA code and links device (GPU) code into an object that can be understood by g++ with the help of the CUDA Runtime Library.
+#
+#############################
+# build_path := Where to build program and put executable (note: folder must already exist)
+# api_path_source := Location of API source folder
+# api_path_include := Location of API include folder
+# EXEC_FILE := Name of executable 
+#
+# CC := Compiler, in this case g++
+# NVCC := Compiler path, in this case nvcc is in $PATH
+# CFLAGS_CUDA := Compiler Flags for CUDA (*.cu) Files: optimize most, fast math, add API include folder to include search path, equivalent to --relocatable-device-code=true --compile
+# CFLAGS_CPP := Compiler Flags for CPP (main.cpp) Files: optimize most, add API include folder to include search path, compile
+# CODE := GPU types for which to build explicitly (I have a NVIDIA GTX 780M and 980) https://developer.nvidia.com/cuda-gpus
+# LIB_CUDART := Location of the CUDA Runtime API
+# 
+# cpp_object_names := CPP objects required for executable
+# cpp_objects := Prepends build path to object names
+#
+# cuda_object_names := CUDA objects required for executable
+# cuda_objects := Prepends build path to object names
+#
+# all := Command 'make' or 'make all' builds executable file $(EXEC_FILE) in location $(build_path)/
+#
+# ##### Object Dependencies Lists #####
+# If one of the files on the right hand side of the : changes, the corresponding object must be recompiled.
+# This is a users makefile - it assumes there will be no changes to the GOFish API files, so does not include
+# all the non-*.cu (non source file) dependencies except those that the user created (i.e. run.h). If changes 
+# to the API .h or .cuh files are expected see Object Dependencies Lists in example_dadi or run 'make clean' 
+# before each 'make all'.
+# ##### End Object Dependencies Lists #####
+#
+# $(cpp_objects) := Make target all objects
+# 	Use g++ to compile CPP source code into objects, $< := dependencies from Object Dependencies Lists, $@ := object in $(objects)
+#
+# $(cuda_objects) := Make target all objects
+# 	Use nvcc to compile CUDA source code into objects, $< := dependencies from Object Dependencies Lists, $@ := object in $(objects)
+#
+# $(build_path)/gpuCode.o := Make target CUDA object which depends on cuda objects
+# 	Use nvcc to link device code from CUDA objects into object gpuCode.o, $@ := $(build_path)/gpuCode.o
+#
+# $(build_path)/$(EXEC_FILE) := Make target executable EXEC_FILE which depends on all objects
+# 	Use g++ to link CUDA/CPP objects into executable EXEC_FILE reintegrating device code using gpuCode.o and the CUDA runtime library, $@ := $(build_path)/$(EXEC_FILE)
+#
+# .PHONY := Defines 'all' as not a true target (i.e. don't remake executable if can't find a file called 'all')
+#############################
+
+build_path = ../../../build/example_compilation
+api_path_source = ../../source
+api_path_include = ../../include
+EXEC_FILE = GOFish
+
+CC = g++
+NVCC = nvcc
+CFLAGS_CUDA = -O3 --use_fast_math -I $(api_path_include)/ -dc
+CFLAGS_CPP = -O3 -I $(api_path_include)/ -c
+CODE = --generate-code arch=compute_30,code=sm_30 --generate-code arch=compute_52,code=sm_52 
+LIB_CUDART = -L/usr/local/cuda/lib -lcudart
+
+cpp_object_names = main.o
+cpp_objects = $(addprefix $(build_path)/,$(cpp_object_names))
+
+cuda_object_names = run.o shared.o go_fish_impl.o
+cuda_objects = $(addprefix $(build_path)/,$(cuda_object_names))
+
+all: $(build_path)/$(EXEC_FILE)
+
+##### OBJECT DEPENDENCIES #####
+$(build_path)/main.o: main.cpp run.h
+$(build_path)/run.o: run.cu run.h
+$(build_path)/shared.o: $(api_path_source)/shared.cu
+$(build_path)/go_fish_impl.o: $(api_path_source)/go_fish_impl.cu
+##### END OBJECT DEPENDENCIES #####
+
+$(cpp_objects):
+	$(CC) $(CFLAGS_CPP) $< -o $@
+
+$(cuda_objects):
+	$(NVCC) $(CODE) $(CFLAGS_CUDA) $< -o $@
+
+$(build_path)/gpuCode.o: $(cuda_objects)
+	$(NVCC) $(CODE) -dlink $(cuda_objects) -o $@
+
+$(build_path)/$(EXEC_FILE): $(cpp_objects) $(cuda_objects) $(build_path)/gpuCode.o
+
+	$(CC) $(cpp_objects) $(build_path)/gpuCode.o $(cuda_objects) $(LIB_CUDART) -o $@
+
+.PHONY: all 
