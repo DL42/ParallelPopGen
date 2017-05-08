@@ -35,7 +35,8 @@
  * For faster GO_Fish simulations:
  * \li Play around with \ref GO_Fish::allele_trajectories::sim_constants::compact_interval. 
  - The variable compact_interval determines when to trow away mutations that have been lost or fixed by all populations in the simulation. Raise it to do it less often, lower it for more often. Optimal compact intervals can only be determined 
- heuristically - larger simulations (with more mutations) need to be compacted more often than smaller simulations, while faster GPUs with more cores need to compact less often than slower ones with fewer cores. \n\n 
+ heuristically - larger simulations (with more mutations) need to be compacted more often than smaller simulations, while faster GPUs with more cores need to compact less often than slower ones with fewer cores. **Note:** Changing the compact
+ interval will change the result of the simulation run for the same seed numbers. However, these are not independent simulation runs! Changing the compact interval produces new random, but correlated simulation results. \n\n 
  * \li When simulating full allele_trajectories, turn off compact_interval. 
  - To record the frequency of every mutation for every generation, pass Sim_Model::bool_on to GO_Fish::run_sim's parameter Functor_timesample take_sample and set
  GO_Fish::allele_trajectories::sim_constants::compact_interval `= 0`. \n\n
@@ -43,7 +44,7 @@
  - See \ref Example2-DaDi and \ref δaδi for an examples and general how-to. \n\n
  * \li GO_Fish::run_sim has an important <B>Pro tip</B> regarding input template functions.
  * 
- * (<B>Advanced users</B>) In implementation file shared.cuh, there are several variables that can be tuned: 
+ * (<B>Pro Tip - Advanced users</B>) In implementation file shared.cuh, there are several variables that can be tuned: 
  * \li `typedef r123::Philox4x32_R<10> P;`: <10> can be set as low as <8> for extra-speed.
  - Philox is the random number generator for GO_Fish. The 10 refers to the number of bijections it performs to generate a new random number. The authors of Philox state that 8 is the lowest safe limit, but 10 is recommended for maximum speed.
  Current default setting in shared.cuh is 10. \n\n
@@ -109,8 +110,11 @@
  * A simple, benchmarking scenario. \n\n
  * Below code tests the speed of a neutral, constant population simulation on a GPU: 
  * \includelineno examples/example_speed/run.cu 
-  * Below is the makefile:
- * \includelineno examples/example_speed/makefile
+ * In the example makefile below, each line is documented by the top part of the makefile: 
+ * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
+ * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
+ * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
+ * \includelineno examples/example_speed/makefile 
  */
  
 /*! \example Example2-DaDi
@@ -131,7 +135,10 @@
  * \includelineno examples/example_dadi/run.cu 
  * Below is the corresponding δaδi code:
  * \include examples/example_dadi/dadi_example.py
- * Below is the makefile to create executable GOFish from examples/example_dadi/run.cu:
+ * Below is the makefile to create executable GOFish from examples/example_dadi/run.cu, each line is documented by the top part of the makefile:
+ * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
+ * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
+ * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
  * \includelineno examples/example_dadi/makefile
  */
  
@@ -150,10 +157,16 @@
  * <B>Pro Tip:</B> A nice thing about CUDA is the flexibility it gives in compiling mixed C/C++ and CUDA programs. Below is an example where the entire program can alternatively be compiled
  by NVCC (the NVIDIA CUDA compiler) - e.g. makefile_nvcc - or by g++ & NVCC where NVCC compiles just the GPU-accelerated portions and then hands the linking over g++ - e.g. makefile_gpp. The master
  makefile controls which is called. This is useful if you are adding the simulation to your own project compiled with a certain compiler that you do not want to change for the code you have written. 
- The CUDA code essentially becomes an accelerated library that you can use in your current project. Master makefile:
+ The CUDA code essentially becomes an accelerated library that you can use in your current project. Master makefile, each line is documented by the top part of the makefile:
  * \includelineno examples/example_compilation/makefile
- * makefile_nvcc:
+ * makefile_nvcc, each line is documented by the top part of the makefile:
+ * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
+ * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
+ * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
  * \includelineno examples/example_compilation/makefile_nvcc
- * makefile_gpp:
+ * makefile_gpp, each line is documented by the top part of the makefile:
+ * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
+ * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
+ * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
  * \includelineno examples/example_compilation/makefile_gpp
  */

@@ -10,14 +10,14 @@
 
 //includes below in sfs & go_fish
 #include <cuda_runtime.h>
-#include "../outside_libraries/helper_math.h"
+#include "../_outside_libraries/helper_math.h"
 #include <limits.h>
 #include <math.h>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../outside_libraries/Random123/philox.h"
-#include "../outside_libraries/Random123/features/compilerfeatures.h"
+#include "../_outside_libraries/Random123/philox.h"
+#include "../_outside_libraries/Random123/features/compilerfeatures.h"
 
 /* ----- cuda error checking & device setting ----- */
 #define __DEBUG__ false

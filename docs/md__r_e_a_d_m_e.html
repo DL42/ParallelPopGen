@@ -89,26 +89,42 @@ $(document).ready(function(){initNavTree('md__r_e_a_d_m_e.html','');});
 <div class="title">Parallel PopGen Package v0.3 README </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>The Parallel PopGen Package is a library of CUDA C/C++ APIs consisting of the <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulation API (with an associated optional <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a> API) and the <a class="el" href="namespace_spectrum.html" title="Namespace for site frequency spectrum data structure and functions. (in prototype-phase) ...">Spectrum</a> API to simulate allele trajectories and generate SFS respectively. Programs using the APIs can compiled on Mac OSX, Linux, and Windows operating systems. An offline link to the API manual can be found in documents/API.html (Mac/Linux softlink for convenience) and docs/index.html (Mac/Linux/Windows). Online access for the manual of the latest release is at: <a href="http://dl42.github.io/ParallelPopGen/">http://dl42.github.io/ParallelPopGen/</a>. The documentation/ folder also contains a copy of the paper: "Accelerating Wright-Fisher Forward Simulations on the Graphics Processing Unit", which should be cited if the Parallel PopGen Package is used (currently on <a href="http://biorxiv.org/content/early/2017/04/11/042622">bioRxiv</a>).</p>
+<div class="textblock"><p>The Parallel PopGen Package (3P) is a library of CUDA C/C++ APIs consisting of the <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulation API (with an associated optional <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a> API) and the <a class="el" href="namespace_spectrum.html" title="Namespace for site frequency spectrum data structure and functions. (in prototype-phase) ...">Spectrum</a> API to simulate allele trajectories and generate SFS respectively. Programs using the APIs can compiled on Mac OSX, Linux, and Windows operating systems. An offline link to the API manual can be found in documents/API.html (Mac/Linux softlink for convenience) and docs/index.html (Mac/Linux/Windows). Online access for the manual of the latest release is at: <a href="http://dl42.github.io/ParallelPopGen/">http://dl42.github.io/ParallelPopGen/</a>. The documentation/ folder also contains a copy of the paper: "Accelerating Wright-Fisher Forward Simulations on the Graphics Processing Unit", which should be cited if the Parallel PopGen Package is used (currently on <a href="http://biorxiv.org/content/early/2017/04/11/042622">bioRxiv</a>).</p>
 <p>Parallel PopGen Package requires an NVIDIA GPU with a minimum of compute capability 3.0. <a href="https://developer.nvidia.com/cuda-gpus">List of NVIDIA GPUs.</a></p>
-<p>To use the API package, <a href="https://developer.nvidia.com/cuda-toolkit">install CUDA Toolkit 6.5. or greater.</a> For those with <a href="https://developer.nvidia.com/cuda-toolkit-65">Install CUDA Toolkit 6.5.</a> and Maxwell 2 GPUs (GeForce GTX9xx GPUs) first install the previous toolkit to get the drivers, then <a href="https://developer.nvidia.com/cuda-downloads-geforce-gtx9xx">download CUDA Toolkit 6.5 here to get the updated toolkit.</a></p>
+<p>To use the API package, <a href="https://developer.nvidia.com/cuda-toolkit">install CUDA Toolkit 6.5. or greater.</a> For those with <a href="https://developer.nvidia.com/cuda-toolkit-65">CUDA Toolkit 6.5.</a> and Maxwell 2 GPUs (e.g. GeForce GTX9xx GPUs) first install the previous toolkit to get the drivers, then <a href="https://developer.nvidia.com/cuda-downloads-geforce-gtx9xx">download CUDA Toolkit 6.5 here to get the updated toolkit.</a> For MacOS, Linux. Pascal GPUs (e.g. GeForce GTX10xx GPUs) require CUDA 8 or above.</p>
+<p>Occasionally for newest operating system versions with the newest compilers, Nvidia can take awhile to issue an update to sync the CUDA compiler, nvcc, with clang, gcc, msvc tools. An example error for MacOS Sierra with the newest Xcode command line tools (CLT):</p>
+<blockquote class="doxtable">
+<p>nvcc fatal : The version ('80100') of the host compiler ('Apple clang') is not supported*. </p>
+</blockquote>
+<p>An example of this error for Ubuntu 16.04:</p>
+<blockquote class="doxtable">
+<p>/usr/include/string.h: In function ‘void* __mempcpy_inline(void*, const void*, size_t)’:</p>
+<p>/usr/include/string.h:652:42: error: ‘memcpy’ was not declared in this scope</p>
+<p>return (char *) memcpy (__dest, __src, __n) + __n;" </p>
+</blockquote>
+<p>Solutions: 1. wait for CUDA update (e.g. CUDA 8 fixes above error for Ubuntu 16.04). 2. For the Mac example above downgrading from command line tools <a href="https://github.com/arrayfire/arrayfire/issues/1384">(CLT) 8.3 to 8.2 works</a> while waiting for the CUDA update.</p>
 <p>Once installed, then for Unix systems (Mac + Linux), add nvcc (the CUDA compiler) to your Terminal's Path by adding the following to your .bash_profile or .bashrc:</p>
 <p>export PATH=$PATH:/usr/local/cuda/bin export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib</p>
 <p>Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems).</p>
-<p>Code can be developed and compiled in an Integrated Development Environment - <a href="http://www.nvidia.com/object/nsight.html">Nsight</a>, which comes with the CUDA toolkit, is recommended which on Linux/Mac is an Eclipse IDE and on Windows is a Visual Studio IDE, each modified by Nvidia for CUDA development. Also, in folder examples/ are several example programs using the API with custom makefiles. Standard makefile generator programs should also work.</p>
-<p>Change-log:</p>
-<p><a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> v0.9:</p>
+<p>Code can be developed and compiled in an Integrated Development Environment - <a href="http://www.nvidia.com/object/nsight.html">Nsight</a>, which comes with the CUDA toolkit, is recommended which on Linux/Mac is an Eclipse IDE and on Windows is a Visual Studio IDE, each modified by Nvidia for CUDA development. Also, in folder examples/ are several example programs using the API with custom makefiles written for Linux/macOS. Standard makefile generator programs should also work.</p>
+<p>All of the API files are in folder 3P/. The files in folders _internal/ and _outside_libraries/ within 3P/ contain implementations of the methods used in the package. All example makefiles and example source programs are in the folder examples/. Documentation for the examples and their respective makefiles can be found here: <a href="http://dl42.github.io/ParallelPopGen/examples.html">http://dl42.github.io/ParallelPopGen/examples.html</a>.</p>
+<p>Change-log 3P v0.3.2:</p>
 <ul>
-<li>minor changes and major bug fixes to simulation algorithm</li>
-<li>API creation and documentation</li>
+<li>updated file and folder structure</li>
+<li>updated README and API Documentation</li>
+<li>updated example makefiles which change build location to be within source code folder (no extra folder needs to be created by user)</li>
 </ul>
-<p><a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a> v0.9:</p>
+<p><a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> v0.9.1:</p>
 <ul>
-<li>API creation and documentation</li>
+<li>updated include statements to reflect new file structure</li>
 </ul>
-<p><a class="el" href="namespace_spectrum.html" title="Namespace for site frequency spectrum data structure and functions. (in prototype-phase) ...">Spectrum</a> v0.1:</p>
+<p><a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a> v0.9.1:</p>
 <ul>
-<li>prototype API for SFS generation </li>
+<li>updated include statements to reflect new file structure</li>
+</ul>
+<p><a class="el" href="namespace_spectrum.html" title="Namespace for site frequency spectrum data structure and functions. (in prototype-phase) ...">Spectrum</a> v0.1.1:</p>
+<ul>
+<li>updated include statements to reflect new file structure </li>
 </ul>
 </div></div><!-- contents -->
 </div><!-- doc-content -->

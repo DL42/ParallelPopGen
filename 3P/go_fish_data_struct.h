@@ -62,7 +62,8 @@ struct allele_trajectories{
 		int num_populations; /**<\brief number of populations in simulation */ /**< default: 1 */
 		bool init_mse; /**<\brief true: initialize simulation in mutation_selection_equilibrium; false: initialize blank simulation or using previous simulation time sample */ /**< default: true */
 		int prev_sim_sample; /**<\brief time sample of previous simulation to use for initializing current simulation */ /**< overridden by init_mse if init_mse = true \n default: -1 (if init_mse = false, ignore previous simulation & initialize blank simulation) */
-		int compact_interval; /**<\brief how often to compact the simulation and remove fixed or lost mutations */ /**< default: 35 := compact every 35 generations\n compact_interval = 0 turns off compact (mutations will not be removed even if lost or fixed) */
+		int compact_interval; /**<\brief how often to compact the simulation and remove fixed or lost mutations */ /**< default: 35 := compact every 35 generations\n compact_interval = 0 turns off compact (mutations will not be removed even if lost or fixed) \n\n **Note:** Changing the compact
+                              * interval will change the result of the simulation run for the same seed numbers. However, these are not independent simulation runs! Changing the compact interval produces new random, but correlated simulation results. */
 		int device; /**<\brief GPU identity to run simulation on, if -1 next available GPU will be assigned */ /**< default: -1 */
 
 		inline sim_constants();
@@ -173,7 +174,7 @@ inline void swap(allele_trajectories & a, allele_trajectories & b);
 } /* ----- end namespace GO_Fish ----- */
 
 /* ----- import inline function definitions ----- */
-#include "../source/inline_go_fish_data_struct.hpp"
+#include "../3P/_internal/inline_go_fish_data_struct.hpp"
 /* ----- end ----- */
 
 #endif /* GO_FISH_DATA_H_ */

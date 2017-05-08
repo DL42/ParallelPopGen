@@ -137,7 +137,7 @@ API Overview</h1>
 Tips</h2>
 <p>For faster <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulations: </p><ul>
 <li>Play around with <a class="el" href="struct_g_o___fish_1_1allele__trajectories_1_1sim__constants.html#a3a5406282cfa4db45a72213bd5e50e65">GO_Fish::allele_trajectories::sim_constants::compact_interval</a>.<ul>
-<li>The variable compact_interval determines when to trow away mutations that have been lost or fixed by all populations in the simulation. Raise it to do it less often, lower it for more often. Optimal compact intervals can only be determined heuristically - larger simulations (with more mutations) need to be compacted more often than smaller simulations, while faster GPUs with more cores need to compact less often than slower ones with fewer cores. <br />
+<li>The variable compact_interval determines when to trow away mutations that have been lost or fixed by all populations in the simulation. Raise it to do it less often, lower it for more often. Optimal compact intervals can only be determined heuristically - larger simulations (with more mutations) need to be compacted more often than smaller simulations, while faster GPUs with more cores need to compact less often than slower ones with fewer cores. <b>Note:</b> Changing the compact interval will change the result of the simulation run for the same seed numbers. However, these are not independent simulation runs! Changing the compact interval produces new random, but correlated simulation results. <br />
 <br />
  </li>
 </ul>
@@ -156,7 +156,7 @@ Tips</h2>
 </li>
 <li><a class="el" href="namespace_g_o___fish.html#a7e11d273a799f6ddbda24e3115a49083" title="runs a single-locus Wright-Fisher simulation specified by the given simulation functions and sim_cons...">GO_Fish::run_sim</a> has an important <b>Pro tip</b> regarding input template functions.</li>
 </ul>
-<p>(<b>Advanced users</b>) In implementation file <a class="el" href="shared_8cuh_source.html">shared.cuh</a>, there are several variables that can be tuned: </p><ul>
+<p>(<b>Pro Tip - Advanced users</b>) In implementation file <a class="el" href="shared_8cuh_source.html">shared.cuh</a>, there are several variables that can be tuned: </p><ul>
 <li><code>typedef r123::Philox4x32_R&lt;10&gt; P;</code>: &lt;10&gt; can be set as low as &lt;8&gt; for extra-speed.<ul>
 <li>Philox is the random number generator for <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a>. The 10 refers to the number of bijections it performs to generate a new random number. The authors of Philox state that 8 is the lowest safe limit, but 10 is recommended for maximum speed. Current default setting in <a class="el" href="shared_8cuh_source.html">shared.cuh</a> is 10. <br />
 <br />

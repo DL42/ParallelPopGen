@@ -15,7 +15,7 @@
 #ifndef SPECTRUM_H_
 #define SPECTRUM_H_
 
-#include "../include/go_fish_data_struct.h"
+#include "../3P/go_fish_data_struct.h"
 
 ///Namespace for site frequency spectrum data structure and functions. (in prototype-phase)
 namespace Spectrum{

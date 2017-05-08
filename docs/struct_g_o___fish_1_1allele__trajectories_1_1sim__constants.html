@@ -288,7 +288,9 @@ Public Attributes</h2></td></tr>
 
 <p>how often to compact the simulation and remove fixed or lost mutations </p>
 <p>default: 35 := compact every 35 generations<br />
- compact_interval = 0 turns off compact (mutations will not be removed even if lost or fixed) </p>
+ compact_interval = 0 turns off compact (mutations will not be removed even if lost or fixed) <br />
+<br />
+ <b>Note:</b> Changing the compact interval will change the result of the simulation run for the same seed numbers. However, these are not independent simulation runs! Changing the compact interval produces new random, but correlated simulation results. </p>
 <dl><dt><b>Examples: </b></dt><dd><a class="el" href="_example1-_speed-example.html#a11">Example1-Speed</a>, <a class="el" href="_example2-_da_di-example.html#a13">Example2-DaDi</a>, and <a class="el" href="_example3-_compilation-example.html#a14">Example3-Compilation</a>.</dd>
 </dl>
 <p>Definition at line <a class="el" href="go__fish__data__struct_8h_source.html#l00065">65</a> of file <a class="el" href="go__fish__data__struct_8h_source.html">go_fish_data_struct.h</a>.</p>
@@ -310,13 +312,13 @@ Public Attributes</h2></td></tr>
 <p>GPU identity to run simulation on, if -1 next available GPU will be assigned. </p>
 <p>default: -1 </p>
 
-<p>Definition at line <a class="el" href="go__fish__data__struct_8h_source.html#l00066">66</a> of file <a class="el" href="go__fish__data__struct_8h_source.html">go_fish_data_struct.h</a>.</p>
+<p>Definition at line <a class="el" href="go__fish__data__struct_8h_source.html#l00067">67</a> of file <a class="el" href="go__fish__data__struct_8h_source.html">go_fish_data_struct.h</a>.</p>
 
 </div>
 </div>
 <hr/>The documentation for this struct was generated from the following files:<ul>
-<li>include/<a class="el" href="go__fish__data__struct_8h_source.html">go_fish_data_struct.h</a></li>
-<li>source/<a class="el" href="inline__go__fish__data__struct_8hpp_source.html">inline_go_fish_data_struct.hpp</a></li>
+<li>3P/<a class="el" href="go__fish__data__struct_8h_source.html">go_fish_data_struct.h</a></li>
+<li>3P/_internal/<a class="el" href="inline__go__fish__data__struct_8hpp_source.html">inline_go_fish_data_struct.hpp</a></li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->

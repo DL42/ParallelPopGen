@@ -19,8 +19,8 @@
 #ifndef GO_FISH_API_H_
 #define GO_FISH_API_H_
 #include <cuda_runtime.h>
-#include "../outside_libraries/helper_math.h"
-#include "../include/go_fish_data_struct.h"
+#include "../3P/_outside_libraries/helper_math.h"
+#include "../3P/go_fish_data_struct.h"
 
 ///Namespace of functions for controlling GO_Fish simulations
 namespace Sim_Model{
@@ -337,11 +337,11 @@ __host__ void run_sim(allele_trajectories & all_results, const Functor_mutation 
 } /* ----- end namespace GO_Fish ----- */
 
 /* ----- importing functor implementations ----- */
-#include "../source/template_inline_simulation_functors.cuh"
+#include "../3P/_internal/template_inline_simulation_functors.cuh"
 /* ----- end importing functor implementations ----- */
 
 /* ----- importing go_fish_impl  ----- */
-#include "../source/go_fish_impl.cuh"
+#include "../3P/_internal/go_fish_impl.cuh"
 /* ----- end importing go_fish_impl ----- */
 
 

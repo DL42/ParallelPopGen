@@ -4,10 +4,10 @@
  *      Author: David Lawrie
  */
 
-#include "../include/spectrum.h"
-#include "../source/shared.cuh"
-#include "../outside_libraries/cub/device/device_scan.cuh"
-#include "../outside_libraries/cub/block/block_reduce.cuh"
+#include "../spectrum.h"
+#include "../_internal/shared.cuh"
+#include "../_outside_libraries/cub/device/device_scan.cuh"
+#include "../_outside_libraries/cub/block/block_reduce.cuh"
 #include <math_constants.h>
 
 //!\cond

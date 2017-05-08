@@ -5,7 +5,7 @@
  *      implementation of non-template, non-inline functions for GO Fish simulation
  */
 
-#include "go_fish_impl.cuh"
+#include "../_internal/go_fish_impl.cuh"
 
 //!\cond
 namespace go_fish_details{

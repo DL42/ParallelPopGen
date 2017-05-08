@@ -5,7 +5,7 @@
  *      for cuda and rand functions used by both go_fish and by sfs
  */
 
-#include "shared.cuh"
+#include "../_internal/shared.cuh"
 
 __device__ int RNG::ApproxRandBinomHelper(unsigned int i, float mean, float var, float N){
 	if(mean <= RNG_MEAN_BOUNDARY_NORM){

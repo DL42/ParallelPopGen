@@ -8,9 +8,9 @@
 #ifndef GO_FISH_IMPL_CUH_
 #define GO_FISH_IMPL_CUH_
 
-#include "../outside_libraries/cub/device/device_scan.cuh"
-#include "../source/shared.cuh"
-#include "../include/go_fish_data_struct.h"
+#include "../_outside_libraries/cub/device/device_scan.cuh"
+#include "../_internal/shared.cuh"
+#include "../go_fish_data_struct.h"
 
 //!\cond
 namespace go_fish_details{
