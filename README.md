@@ -22,10 +22,11 @@ Solutions: 1. wait for CUDA update (e.g. CUDA 8 fixes above error for Ubuntu 16.
 
 Once installed, then for Unix systems (Mac + Linux), add nvcc (the CUDA compiler) to your Terminal's Path by adding the following to your .bash_profile or .bashrc:
 
-export PATH=$PATH:/usr/local/cuda/bin  
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
+> export PATH=$PATH:/usr/local/cuda/bin  
+>
+> export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
 
-Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems).
+Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems). Otherwise you will get an 'nvcc: command not found' error. 
 
 Code can be developed and compiled in an Integrated Development Environment - [Nsight](http://www.nvidia.com/object/nsight.html), which comes with the CUDA toolkit, is recommended which on Linux/Mac is an Eclipse IDE and on Windows is a Visual Studio IDE, each modified by Nvidia for CUDA development. Also, in folder examples/ are several example programs using the API with custom makefiles written for Linux/macOS. Standard makefile generator programs should also work.
 

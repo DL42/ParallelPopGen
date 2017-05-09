@@ -104,8 +104,11 @@ $(document).ready(function(){initNavTree('md__r_e_a_d_m_e.html','');});
 </blockquote>
 <p>Solutions: 1. wait for CUDA update (e.g. CUDA 8 fixes above error for Ubuntu 16.04). 2. For the Mac example above downgrading from command line tools <a href="https://github.com/arrayfire/arrayfire/issues/1384">(CLT) 8.3 to 8.2 works</a> while waiting for the CUDA update.</p>
 <p>Once installed, then for Unix systems (Mac + Linux), add nvcc (the CUDA compiler) to your Terminal's Path by adding the following to your .bash_profile or .bashrc:</p>
-<p>export PATH=$PATH:/usr/local/cuda/bin export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib</p>
-<p>Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems).</p>
+<blockquote class="doxtable">
+<p>export PATH=$PATH:/usr/local/cuda/bin</p>
+<p>export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib </p>
+</blockquote>
+<p>Or alter the path in the makefile from nvcc to the location of nvcc on your hard drive. (e.g. for Macs the path would be /Developer/NVIDIA/CUDA-6.5/bin/nvcc - or /usr/local/cuda/bin/nvcc should work for the most recent CUDA install for general Unix systems). Otherwise you will get an 'nvcc: command not found' error.</p>
 <p>Code can be developed and compiled in an Integrated Development Environment - <a href="http://www.nvidia.com/object/nsight.html">Nsight</a>, which comes with the CUDA toolkit, is recommended which on Linux/Mac is an Eclipse IDE and on Windows is a Visual Studio IDE, each modified by Nvidia for CUDA development. Also, in folder examples/ are several example programs using the API with custom makefiles written for Linux/macOS. Standard makefile generator programs should also work.</p>
 <p>All of the API files are in folder 3P/. The files in folders _internal/ and _outside_libraries/ within 3P/ contain implementations of the methods used in the package. All example makefiles and example source programs are in the folder examples/. Documentation for the examples and their respective makefiles can be found here: <a href="http://dl42.github.io/ParallelPopGen/examples.html">http://dl42.github.io/ParallelPopGen/examples.html</a>.</p>
 <p>Change-log 3P v0.3.2:</p>
