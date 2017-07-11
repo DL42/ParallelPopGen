@@ -31,7 +31,7 @@ namespace Spectrum_details{ class transfer_allele_trajectories; } //for passing 
 namespace GO_Fish{
 
 /* ----- sim result output ----- */
-//!structure specifying the ID for a mutation in the simulation
+//!structure specifying the ID for a mutation in a GO_Fish simulation
 struct mutID{
 	int origin_generation; /**<\brief generation in which mutation appeared in simulation */ /**<\t*/
 	int origin_population; /**<\brief population in which mutation first arose */ /**<\t*/
@@ -50,7 +50,7 @@ struct mutID{
     inline std::string toString() const;
 };
 
-//!control and output data structure for Wright-Fisher simulation
+//!control and output data structure for GO_Fish simulation
 struct allele_trajectories{
 	//----- initialization parameters -----
 	//!specification of simulation constants
@@ -84,7 +84,7 @@ struct allele_trajectories{
 	/**\brief returns sim_constants of the simulation currently held by allele_trajectories */ /**\t*/
 	inline sim_constants last_run_constants();
 
-	/**\brief returns the number of populations in the simulation */ /**\t*/
+	/**\brief returns the number of sites in the simulation */ /**\t*/
 	inline int num_sites();
 
 	/**\brief returns the number of populations in the simulation */ /**maximum population_index*/
@@ -158,7 +158,7 @@ private:
 	int num_samples; //number of time samples taken from the simulation
 	mutID * mutations_ID; //unique ID for each mutation in simulation
 	int all_mutations; //number of mutations in mutation ID array - maximal set of mutations stored in allele_trajectories
-};
+}; /**< Stores the constants, mutation IDs (mutID), and time samples of a simulation run. Each time sample holds the frequencies of each mutation at the time the sample was taken, the size of each population in chromosomes and which population were extinct for a time sample, the number of mutations in the sample, and of which simulation generation is the sample. Data is accessed through the member functions. **/
 
 /**\brief insertion operator: sends `mutID id` into the `ostream stream` */
 inline std::ostream & operator<<(std::ostream & stream, const mutID & id);
