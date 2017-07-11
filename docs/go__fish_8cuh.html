@@ -95,7 +95,7 @@ $(document).ready(function(){initNavTree('go__fish_8cuh.html','');});
 </div><!--header-->
 <div class="contents">
 
-<p>GO Fish Simulation API (contains namespaces <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> and <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a>)  
+<p>GO Fish Simulation API (contains namespaces <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> and <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a>)  
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;cuda_runtime.h&gt;</code><br />
 <code>#include &quot;../3P/_outside_libraries/helper_math.h&quot;</code><br />
@@ -177,10 +177,10 @@ Classes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespace_sim___model"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespace_sim___model.html">Sim_Model</a></td></tr>
-<tr class="memdesc:namespace_sim___model"><td class="mdescLeft">&#160;</td><td class="mdescRight">Namespace of functions for controlling <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulations. <br /></td></tr>
+<tr class="memdesc:namespace_sim___model"><td class="mdescLeft">&#160;</td><td class="mdescRight">Namespace of functions for controlling <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulations. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespace_g_o___fish"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespace_g_o___fish.html">GO_Fish</a></td></tr>
-<tr class="memdesc:namespace_g_o___fish"><td class="mdescLeft">&#160;</td><td class="mdescRight">Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures. <br /></td></tr>
+<tr class="memdesc:namespace_g_o___fish"><td class="mdescLeft">&#160;</td><td class="mdescRight">Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
@@ -195,7 +195,7 @@ Functions</h2></td></tr>
 <tr class="separator:a834fcc7ee0053108d5ad988c3e5a3541"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>GO Fish Simulation API (contains namespaces <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> and <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a>) </p>
+<div class="textblock"><p>GO Fish Simulation API (contains namespaces <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> and <a class="el" href="namespace_sim___model.html" title="Namespace of functions for controlling GO_Fish simulations. ">Sim_Model</a>) </p>
 <p><a class="el" href="go__fish_8cuh.html" title="GO Fish Simulation API (contains namespaces GO_Fish and Sim_Model) ">go_fish.cuh</a> contains all structures and functions necessary for running, storing, and outputting a single locus Wright_fisher simulation. When including <a class="el" href="go__fish_8cuh.html" title="GO Fish Simulation API (contains namespaces GO_Fish and Sim_Model) ">go_fish.cuh</a> into a source file, <a class="el" href="go__fish__data__struct_8h.html" title="Subset of go_fish.cuh (the GO_Fish data structures) ">go_fish_data_struct.h</a> is automatically included - no need to include it separately. Unlike <a class="el" href="go__fish__data__struct_8h.html" title="Subset of go_fish.cuh (the GO_Fish data structures) ">go_fish_data_struct.h</a> and <a class="el" href="spectrum_8h.html" title="proto-API for building site frequency spectra (contains the titular namespace Spectrum) ...">spectrum.h</a>, <a class="el" href="go__fish_8cuh.html" title="GO Fish Simulation API (contains namespaces GO_Fish and Sim_Model) ">go_fish.cuh</a> can only be included in CUDA source files (*.cu). CUDA source files are identical to C, C++ source files (*.c, *.cpp) except that the the CUDA suffix (*.cu) indicates for NVCC (the CUDA compiler) that the file contains CUDA-specific <code>__global__</code> and <code>__device__</code> functions/variables meant for the GPU. <code>__global__</code> and <code>__device__</code> functions/variables cannot be compiled in normal C/C++ source files. <br />
 <br />
 </p>

@@ -502,8 +502,18 @@ __host__ __forceinline__ void store_time_sample(int & out_num_mutations, int & o
 
 } /* ----- end namespace go_fish_details ----- */
 //!\endcond
-/** To use GO_Fish functions and objects, include header file: go_fish.cuh
- *  \n Optionally, to use only the GO_Fish data structures, include header file: go_fish_data_struct.h
+/**
+ *  GO_Fish is a single-locus Wright-Fisher forward simulation where individual sites are assumed to be independent from each other and mutations are irreversible (Poisson Random Field model).
+ *  Mutations are the “unit” of simulation for the single-locus Wright-Fisher algorithm. Thus a generation of organisms is represented by an array of mutations and their frequency in the (each) population (if there are multiple in the simulation).
+ *  There are several options for how to initialize the mutation array to start a simulation: a blank mutation array, the output of a previous simulation run, or mutation-selection equilibrium. Simulating each discrete generation consists of
+ *  calculating the new allele frequency of each mutation after a round of migration, selection, and drift. Concurrently, new mutations are added to the array. Those mutations that become lost or fixed are discarded in a compact step. The resulting offspring array
+ *  of mutation frequencies becomes the parent array of the next generation and the cycle is repeated until the end of the simulation when the final mutation array is output. Further, the user can sample individual generations in the simulation.
+ *  \n\n
+ *  The function `run_sim` runs a GO_Fish simulation (see documentation for `run_sim` below). The sampled and final generations are stored in allele_trajectories `all_results`. `all_results` stores the frequency(ies) in the population(s) and mutID of every mutation in the sample in RAM,
+ *  from which population genetics statistics can be calculated or which can be manipulated and output as the user sees fit.
+ *  \n\n
+ *  To use all GO_Fish functions and objects, include header file: go_fish.cuh.
+ *  \n Optionally, to use only the GO_Fish data structures, include header file: go_fish_data_struct.h.
  */
 namespace GO_Fish{
 

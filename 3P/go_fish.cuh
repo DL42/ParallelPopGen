@@ -322,7 +322,7 @@ struct bool_piecewise{
 
 } /* ----- end namespace Sim_Model ----- */
 
-//!Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures
+//!Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures
 namespace GO_Fish{
 
 /* ----- go_fish_impl  ----- */

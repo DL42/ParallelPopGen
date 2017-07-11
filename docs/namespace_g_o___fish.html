@@ -93,7 +93,7 @@ $(document).ready(function(){initNavTree('namespace_g_o___fish.html','');});
 </div><!--header-->
 <div class="contents">
 
-<p>Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures.  
+<p>Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures.  
 <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -126,9 +126,13 @@ Functions</h2></td></tr>
 <tr class="separator:a64c0dc811a89af3eec83cf9a4d31885d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures. </p>
-<p>To use <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> functions and objects, include header file: <a class="el" href="go__fish_8cuh.html" title="GO Fish Simulation API (contains namespaces GO_Fish and Sim_Model) ">go_fish.cuh</a> <br />
- Optionally, to use only the <a class="el" href="namespace_g_o___fish.html" title="Namespace for single locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> data structures, include header file: <a class="el" href="go__fish__data__struct_8h.html" title="Subset of go_fish.cuh (the GO_Fish data structures) ">go_fish_data_struct.h</a> </p>
+<div class="textblock"><p>Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures. </p>
+<p><a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> is a single-locus Wright-Fisher forward simulation where individual sites are assumed to be independent from each other and mutations are irreversible (Poisson Random Field model). Mutations are the “unit” of simulation for the single-locus Wright-Fisher algorithm. Thus a generation of organisms is represented by an array of mutations and their frequency in the (each) population (if there are multiple in the simulation). There are several options for how to initialize the mutation array to start a simulation: a blank mutation array, the output of a previous simulation run, or mutation-selection equilibrium. Simulating each discrete generation consists of calculating the new allele frequency of each mutation after a round of migration, selection, and drift. Concurrently, new mutations are added to the array. Those mutations that become lost or fixed are discarded in a compact step. The resulting offspring array of mutation frequencies becomes the parent array of the next generation and the cycle is repeated until the end of the simulation when the final mutation array is output. Further, the user can sample individual generations in the simulation. <br />
+<br />
+The function <code>run_sim</code> runs a <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> simulation (see documentation for <code>run_sim</code> below). The sampled and final generations are stored in <a class="el" href="struct_g_o___fish_1_1allele__trajectories.html" title="control and output data structure for Wright-Fisher simulation ">allele_trajectories</a> <code>all_results</code>. <code>all_results</code> stores the frequency(ies) in the population(s) and <a class="el" href="struct_g_o___fish_1_1mut_i_d.html" title="structure specifying the ID for a mutation in the simulation ">mutID</a> of every mutation in the sample in RAM, from which population genetics statistics can be calculated or which can be manipulated and output as the user sees fit. <br />
+<br />
+To use all <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> functions and objects, include header file: <a class="el" href="go__fish_8cuh.html" title="GO Fish Simulation API (contains namespaces GO_Fish and Sim_Model) ">go_fish.cuh</a>. <br />
+ Optionally, to use only the <a class="el" href="namespace_g_o___fish.html" title="Namespace for single-locus, forward, Monte-Carlo Wright-Fisher simulation and output data structures...">GO_Fish</a> data structures, include header file: <a class="el" href="go__fish__data__struct_8h.html" title="Subset of go_fish.cuh (the GO_Fish data structures) ">go_fish_data_struct.h</a>. </p>
 </div><h2 class="groupheader">Function Documentation</h2>
 <a id="a7e11d273a799f6ddbda24e3115a49083"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7e11d273a799f6ddbda24e3115a49083">&sect;&nbsp;</a></span>run_sim() <span class="overload">[1/2]</span></h2>
@@ -225,7 +229,7 @@ template&lt;typename Functor_mutation , typename Functor_demography , typename F
 </dl>
 <dl><dt><b>Examples: </b></dt><dd><a class="el" href="_example1-_speed-example.html#a12">Example1-Speed</a>, <a class="el" href="_example2-_da_di-example.html#a18">Example2-DaDi</a>, and <a class="el" href="_example3-_compilation-example.html#a16">Example3-Compilation</a>.</dd>
 </dl>
-<p>Definition at line <a class="el" href="go__fish__impl_8cuh_source.html#l00515">515</a> of file <a class="el" href="go__fish__impl_8cuh_source.html">go_fish_impl.cuh</a>.</p>
+<p>Definition at line <a class="el" href="go__fish__impl_8cuh_source.html#l00525">525</a> of file <a class="el" href="go__fish__impl_8cuh_source.html">go_fish_impl.cuh</a>.</p>
 
 </div>
 </div>
@@ -324,7 +328,7 @@ template&lt;typename Functor_mutation , typename Functor_demography , typename F
   </dd>
 </dl>
 
-<p>Definition at line <a class="el" href="go__fish__impl_8cuh_source.html#l00544">544</a> of file <a class="el" href="go__fish__impl_8cuh_source.html">go_fish_impl.cuh</a>.</p>
+<p>Definition at line <a class="el" href="go__fish__impl_8cuh_source.html#l00554">554</a> of file <a class="el" href="go__fish__impl_8cuh_source.html">go_fish_impl.cuh</a>.</p>
 
 </div>
 </div>
