@@ -58,14 +58,16 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 
 	GO_Fish::allele_trajectories b;
 	b.sim_input_constants.num_populations = 1; 							//number of populations
-	b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
-
+	//b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
+    b.sim_input_constants.num_generations = 34150;
+    b.sim_input_constants.num_sites = pow(10.f,4); // Should be 36 Megabase pairs 
     // Mutation and dominance parameters TODO Change dominance paramater to that of stabalizing selection
 
 	Sim_Model::F_mu_h_constant codominant(0.5f); 						//dominance (co-dominant)
 	Sim_Model::F_mu_h_constant outbred(0.f); 							//inbreeding (outbred)
 
-	Sim_Model::F_mu_h_constant mutation((float) mut_rate); 	//per-site mutation rate 10^-9
+	//Sim_Model::F_mu_h_constant mutation((float) mut_rate / (b.num_sites())); 	//per-site mutation rate 10^-9
+    Sim_Model::F_mu_h_constant mutation(pow(10.f,-9)); 				//per-site mutation rate -- testing
 
     // Demographic model
 
@@ -129,8 +131,8 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 
 		b.sim_input_constants.seed1 = 0xbeeff00d + 2*j; 				//random number seeds
 		b.sim_input_constants.seed2 = 0xdecafbad - 2*j;
-		GO_Fish::run_sim(b, mutation, epoch_5_to_6, mig_model, weak_del, outbred, codominant, Sim_Model::bool_off(), Sim_Model::bool_off());
-		Spectrum::site_frequency_spectrum(my_spectra,b,0,1,sample_size);
+		GO_Fish::run_sim(b, mutation, epoch_5, mig_model, weak_del, outbred, codominant, Sim_Model::bool_off(), Sim_Model::bool_off());
+		Spectrum::site_frequency_spectrum(my_spectra,b,0,0,sample_size);
 
 		avg_num_mutations += ((float)my_spectra.num_mutations)/num_iter;
 		avg_num_mutations_sim += b.maximal_num_mutations()/num_iter;
@@ -167,11 +169,11 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 int main(int argc, char **argv) 
 
 { 
-     // this is the scaled mutation rate, 4*(Effective Population Size)*mutation_rate*(number of sites)
-    float mut_rate = 1.0;    
+     // this is the mutation rate scaled with respect to number of sites, mutation_rate*(number of sites)
+    float mut_rate = 0.3426;    
     // this is a point selection coefficient the selection coefficient will remain the same for the population, this is the un-scaled selection coefficient
-    float PointSel = -0.5; 
-    int num_samples = 1000;    
+    float PointSel = -.0005; 
+    int num_samples = 100;    
 
     // Number of samples for to generate for the site-frequency spectrum (SFS
 
