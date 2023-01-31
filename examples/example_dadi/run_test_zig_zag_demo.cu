@@ -9,63 +9,108 @@
 #include <vector>
 
 /*
- * population 0 starts of in mutation-selection equilibrium at size N_ind
- * population 0 grows to size 2*N_ind at generation 1
- * at generation 0.01*N_ind, population 1 splits off from population 0
- * population 1's initial size is 0.05*N_ind
- * population 1 grows exponentially to size 5*N_ind for 0.09*N_ind generations
- *
- * migration between populations is at rate 1/(2*N_ind) starting at generation 0.01*N_ind+1
- *
- * selection is weakly deleterious (gamma = -4), mutations are co-dominant (h = 0.5), populations are outbred (F = 0)
+This folllows the simple zig-zag demographic model of schiffels-dubin for a single population:
+https://github.com/popsim-consortium/demes-python/blob/main/examples/zigzag.yaml
+
+
+description: A single population model with epochs of exponential growth and decay.
+doi:
+  - https://doi.org/10.1038/ng.3015
+time_units: generations
+demes:
+  - name: generic
+    description: All epochs wrapped into the same population, so that epoch intervals
+      do not overlap, and they tile the entire existence of the population (all time,
+      in this case).
+
+epochs:
+   0 - end_time: 34133.31
+      start_size: 7156
+   1 - end_time: 8533.33
+      end_size: 71560
+   2 - end_time: 2133.33
+      end_size: 7156
+   3 - end_time: 533.33
+      end_size: 71560
+   4 - end_time: 133.33
+      end_size: 7156
+   5 - end_time: 33.333
+      end_size: 71560
+   6 - end_time: 0
+      end_size: 71560
+
  */
 
-void run_validation_test(){
-	typedef Sim_Model::demography_constant dem_const;
-	typedef Sim_Model::demography_population_specific<dem_const> dem_pop_const;
-	typedef Sim_Model::demography_piecewise<dem_pop_const,dem_pop_const> init_expansion;
-	typedef Sim_Model::demography_exponential_growth exp_growth;
-	typedef Sim_Model::demography_population_specific<dem_const,exp_growth> dem_pop_const_exp;
+void run_validation_test(float mut_rate, float sel_coef, int num_samples){
+	typedef std::vector<Sim_Model::demography_constant> dem_const;
+    typedef Sim_Model::demography_piecewise<Sim_Model::demography_constant, Sim_Model::demography_constant> init_expansion;
+    typedef Sim_Model::demography_piecewise<init_expansion, Sim_Model::demography_constant> epoch_1_to_2;
+    typedef Sim_Model::demography_piecewise<epoch_1_to_2, Sim_Model::demography_constant> epoch_2_to_3;
+    typedef Sim_Model::demography_piecewise<epoch_2_to_3, Sim_Model::demography_constant> epoch_3_to_4;
+    typedef Sim_Model::demography_piecewise<epoch_3_to_4, Sim_Model::demography_constant> epoch_4_to_5;
+    typedef Sim_Model::demography_piecewise<epoch_4_to_5, Sim_Model::demography_constant> epoch_5_to_6;
 
-	typedef Sim_Model::migration_constant_equal mig_const;
-	typedef Sim_Model::migration_constant_directional<mig_const> mig_dir;
-	typedef Sim_Model::migration_constant_directional<mig_dir> mig_split;
-	typedef Sim_Model::migration_piecewise<mig_const,mig_split> split_pop0;
+
+
+    typedef Sim_Model::migration_constant_equal mig_const;
+	
 	float scale_factor = 1.0f;											//entire simulation can be scaled up or down with little to no change in resulting normalized SFS
 
 	GO_Fish::allele_trajectories b;
 	b.sim_input_constants.num_populations = 1; 							//number of populations
 	b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
 
+    // Mutation and dominance parameters TODO Change dominance paramater to that of stabalizing selection
+
 	Sim_Model::F_mu_h_constant codominant(0.5f); 						//dominance (co-dominant)
 	Sim_Model::F_mu_h_constant outbred(0.f); 							//inbreeding (outbred)
-	Sim_Model::F_mu_h_constant mutation(pow(10.f,-9)/scale_factor); 	//per-site mutation rate 10^-9
 
-	int N_ind = 7156;								//initial number of individuals in population
-	dem_const pop0(N_ind);
-	dem_pop_const gen0(pop0,1);									//intial population size of N_ind for pop 0 and 0 for pop 1
-	dem_const pop0_final(2*N_ind);
-	dem_pop_const gen1(pop0_final,pop1,1);
-	init_expansion gen_0_1(gen0,gen1,1);								//population 0 grows to size 2*N_ind
-	exp_growth pop1_gen100((log(100.f)/(scale_factor*900.f)),0.05*N_ind,scale_factor*100);
-	dem_pop_const_exp gen100(pop0_final,pop1_gen100,1);					//population 1 grows exponentially from size 0.05*N_ind to 5*N_ind
-	Sim_Model::demography_piecewise<init_expansion,dem_pop_const_exp> demography_model(gen_0_1,gen100,scale_factor*100);
+	Sim_Model::F_mu_h_constant mutation((float) mut_rate); 	//per-site mutation rate 10^-9
 
-	mig_const no_mig_pop0;
-	mig_dir no_pop1_gen0(0.f,1,1,no_mig_pop0);
-	mig_split create_pop1(1.f,0,1,no_pop1_gen0);						//individuals from population 0 migrate to form population 1
-	split_pop0 migration_split(no_mig_pop0,create_pop1,scale_factor*100);
-	float mig = 1.f/(2.f*N_ind);
-	mig_const mig_prop(mig,b.sim_input_constants.num_populations);		//constant and equal migration between populations
-	Sim_Model::migration_piecewise<split_pop0,mig_const> mig_model(migration_split,mig_prop,scale_factor*100+1);
+    // Demographic model
 
-	float gamma = -4; 													//effective selection
-	Sim_Model::selection_constant weak_del(gamma,demography_model,outbred);
+    std::vector<float>  infelection_points(7); 
 
-	b.sim_input_constants.compact_interval = 30;						//compact interval
-	b.sim_input_constants.num_sites = 100*2*pow(10.f,7); 				//number of sites
-	int sample_size = 1001;												//number of samples in SFS
+	int N_ind = 7156;					//initial number of individuals in population
+    int N_final = 71560;                 //final number of individuals in a population
+	dem_const pop_history;			
+    pop_history.push_back(N_ind);	//intial population size of N_ind at epoch 0
 
+    pop_history.push_back(N_final); //population size at epoch 1
+    infelection_points.push_back(34133.31); // population size at epoch 0 changes to population size at epoch 1
+
+    pop_history.push_back(N_ind);	//population size at epoch 2 
+    infelection_points.push_back(8533.33); // population size at epoch 1 changes to population size at epoch 2
+
+
+    pop_history.push_back(N_final); //population size at epoch 3 
+    infelection_points.push_back(2133.33); // population size at epoch 2 changes to population size at epoch 3
+
+    pop_history.push_back(N_ind);	//population size at epoch 4
+    infelection_points.push_back(533.33); // population size at epoch 3 changes to population size at epoch 4
+
+    pop_history.push_back(N_final); //population size at epoch 5
+    infelection_points.push_back(133.33); // population size at epoch 4 changes to population size at epoch 5
+
+    pop_history.push_back(N_final); //population size at epoch 6
+    infelection_points.push_back(33.0); // population size at epoch 5 changes to population size at epoch 6
+
+    init_expansion epoch_0(pop_history[0], pop_history[1], infelection_points[0]);
+    epoch_1_to_2 epoch_1(epoch_0, pop_history[2], infelection_points[1]);
+    epoch_2_to_3 epoch_2(epoch_1, pop_history[3], infelection_points[2]);
+    epoch_3_to_4 epoch_3(epoch_2, pop_history[4], infelection_points[3]);
+    epoch_4_to_5 epoch_4(epoch_3, pop_history[5], infelection_points[4]);
+    epoch_5_to_6 epoch_5(epoch_4, pop_history[6], infelection_points[5]);
+
+
+    // Migration parameters, no--migration
+    mig_const mig_model;
+
+    // Selection parameters
+	Sim_Model::selection_constant weak_del((float) sel_coef);
+
+    // SFS parameters
+	int sample_size = num_samples;										//number of samples in SFS
 	int num_iter = 50;													//number of iterations
     Spectrum::SFS my_spectra;
 
@@ -84,7 +129,7 @@ void run_validation_test(){
 
 		b.sim_input_constants.seed1 = 0xbeeff00d + 2*j; 				//random number seeds
 		b.sim_input_constants.seed2 = 0xdecafbad - 2*j;
-		GO_Fish::run_sim(b, mutation, demography_model, mig_model, weak_del, outbred, codominant, Sim_Model::bool_off(), Sim_Model::bool_off());
+		GO_Fish::run_sim(b, mutation, epoch_5_to_6, mig_model, weak_del, outbred, codominant, Sim_Model::bool_off(), Sim_Model::bool_off());
 		Spectrum::site_frequency_spectrum(my_spectra,b,0,1,sample_size);
 
 		avg_num_mutations += ((float)my_spectra.num_mutations)/num_iter;
@@ -119,4 +164,41 @@ void run_validation_test(){
 
 ////////////////////////////////////////////////////////////
 
-int main(int argc, char **argv) { run_validation_test(); }
+int main(int argc, char **argv) 
+
+{ 
+     // this is the scaled mutation rate, 4*(Effective Population Size)*mutation_rate*(number of sites)
+    float mut_rate = 1.0;    
+    // this is a point selection coefficient the selection coefficient will remain the same for the population, this is the un-scaled selection coefficient
+    float PointSel = -0.5; 
+    int num_samples = 1000;    
+
+    // Number of samples for to generate for the site-frequency spectrum (SFS
+
+    // Eventually this will read in a demographic history file for easier command line use instead of having to re-compile for every new demography
+
+
+    if (argc != 4) // 3 Total parameters, [executable, scaled mutation rate, unscaled selection coefficient, num_samples]
+    {
+        fprintf(stderr, "Error: The number of arguments given in the command line is not correct. In this version you need to pass in a selection cofficient and unscaled mutation rate, format is: ./GOFish scaled_mutation_rate unscaled_selection coefficient num_samples \n");
+        //exit(8);
+        std::cout << "Using default values" << std::endl;
+    }
+    else{
+
+        mut_rate = atof(argv[1]);
+        PointSel = atof(argv[2]);
+        num_samples = atoi(argv[3]);
+    }
+
+    std::cout<<"Scaled Mutation Rate: " << mut_rate << std::endl;
+    std::cout<<"Inscaled Point Selection: " << PointSel << std::endl;
+    std::cout<<"Number of samples to generate SFS: " << num_samples << std::endl;
+
+
+
+    std::cout<<"Running simulations" << std::endl;
+
+    run_validation_test(mut_rate, PointSel, num_samples); 
+    
+    }
