@@ -7,6 +7,8 @@
 #include "go_fish.cuh"
 #include "spectrum.h"
 #include <vector>
+#include <fstream>
+#include <iterator>
 
 /*
 This folllows the simple zig-zag demographic model of schiffels-dubin for a single population:
@@ -60,7 +62,8 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 	b.sim_input_constants.num_populations = 1; 							//number of populations
 	//b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
     b.sim_input_constants.num_generations = 34150;
-    b.sim_input_constants.num_sites = pow(10.f,4); // Should be 36 Megabase pairs 
+    b.sim_input_constants.num_sites = 36*pow(10.f,6);	 // Should be 36 Megabase pairs 
+    b.sim_input_constants.compact_interval = 15;
     // Mutation and dominance parameters TODO Change dominance paramater to that of stabalizing selection
 
 	Sim_Model::F_mu_h_constant codominant(0.5f); 						//dominance (co-dominant)
@@ -136,6 +139,7 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 
 		avg_num_mutations += ((float)my_spectra.num_mutations)/num_iter;
 		avg_num_mutations_sim += b.maximal_num_mutations()/num_iter;
+        
 		for(int i = 0; i < sample_size; i++){ results[j][i] = my_spectra.frequency_spectrum[i]; }
 	}
 
@@ -158,6 +162,13 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
 		std::cout<<i<<"\t"<<avg<<"\t"<<std<<"\t"<<(std/avg)<<std::endl;
 	}
 
+    std::ofstream output_file("./out_sfs.txt");
+    for(int i = 0; i < sample_size; i++)
+    { 
+        output_file << my_spectra.frequency_spectrum[i] << "\n"; 
+    }
+    
+
 	std::cout<<"\nnumber of sites in simulation: "<< b.num_sites() <<"\ncompact interval: "<< b.last_run_constants().compact_interval;
 	std::cout<<"\naverage number of mutations in simulation: "<<avg_num_mutations_sim<<"\naverage number of mutations in SFS: "<<avg_num_mutations<<"\ntime elapsed (ms): "<< 2*elapsedTime/num_iter<<std::endl;
 }
@@ -173,7 +184,7 @@ int main(int argc, char **argv)
     float mut_rate = 0.3426;    
     // this is a point selection coefficient the selection coefficient will remain the same for the population, this is the un-scaled selection coefficient
     float PointSel = -.0005; 
-    int num_samples = 100;    
+    int num_samples = 100000;    
 
     // Number of samples for to generate for the site-frequency spectrum (SFS
 
