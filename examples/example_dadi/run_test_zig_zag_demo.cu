@@ -1,7 +1,7 @@
 /*
  * run.cu
  *
- *      Author: David Lawrie
+ *      Author: Rahul Mehta
  */
 
 #include "go_fish.cuh"
@@ -41,6 +41,23 @@ epochs:
    6 - end_time: 0
       end_size: 71560
 
+I'm pretty sure these are going backwards (coalescent) as in the simulation starts 34133 generations ago and ends 0 generations ago (modern day), for forward simulations you need to invert the order of the generations e.g.:
+
+epochs:
+   0 - end_time: 0
+      end_size: 7156
+   1 - end_time: 25,599.98 (= 34133.31 - 8533.33 + 0)
+      end_size: 71560
+   2 - end_time: 31,999.98 (= 8533.33 - 2133.33 + 25,599.98)
+      end_size: 7156
+   3 - end_time: 33,599.98
+      end_size: 71560
+   4 - end_time: 33,999.98
+      end_size: 7156
+   5 - end_time: 34,099.98
+      end_size: 71560
+   6 - end_time: 34133.31
+      end_size: 71560
  */
 
 void run_validation_test(float mut_rate, float sel_coef, int num_samples){
@@ -51,16 +68,15 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
     typedef Sim_Model::demography_piecewise<epoch_2_to_3, Sim_Model::demography_constant> epoch_3_to_4;
     typedef Sim_Model::demography_piecewise<epoch_3_to_4, Sim_Model::demography_constant> epoch_4_to_5;
     typedef Sim_Model::demography_piecewise<epoch_4_to_5, Sim_Model::demography_constant> epoch_5_to_6;
-
+	//under the zig_zag model you actually want to use Sim_Model::demography_exponential_growth calculating rate as log((end_size - start_size)/num_generations) where num_generations = end_generations - start_generations
 
 
     typedef Sim_Model::migration_constant_equal mig_const;
 	
-	float scale_factor = 1.0f;											//entire simulation can be scaled up or down with little to no change in resulting normalized SFS
 
 	GO_Fish::allele_trajectories b;
 	b.sim_input_constants.num_populations = 1; 							//number of populations
-	//b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
+
     b.sim_input_constants.num_generations = 34150;
     b.sim_input_constants.num_sites = 36*pow(10.f,6);	 // Should be 36 Megabase pairs 
     b.sim_input_constants.compact_interval = 15;
@@ -73,9 +89,9 @@ void run_validation_test(float mut_rate, float sel_coef, int num_samples){
     Sim_Model::F_mu_h_constant mutation(pow(10.f,-9)); 				//per-site mutation rate -- testing
 
     // Demographic model
-
+	//needs to be inverted as specified above
     std::vector<float>  infelection_points(7); 
-
+	
 	int N_ind = 7156;					//initial number of individuals in population
     int N_final = 71560;                 //final number of individuals in a population
 	dem_const pop_history;			
@@ -188,7 +204,7 @@ int main(int argc, char **argv)
 
     // Number of samples for to generate for the site-frequency spectrum (SFS
 
-    // Eventually this will read in a demographic history file for easier command line use instead of having to re-compile for every new demography
+    // Eventually this will read in a demographic history file for easier command line use instead of having to re-compile for every new demography <- possible but will still require a compilation step as Functors (functions passed as templates) need to be known at compile time (a requirement of GPUs), I have not yet added the ability to do this to the library, technically there are other libraries that will allow this, but I haven't merged them with my API to make it easy. It's on my TODO list
 
 
     if (argc != 4) // 3 Total parameters, [executable, scaled mutation rate, unscaled selection coefficient, num_samples]
