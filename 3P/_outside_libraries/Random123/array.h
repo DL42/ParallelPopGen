@@ -297,6 +297,7 @@ CXXOVERLOADS(_N, W, T)
 
 /** @endcond */
 
+#pragma diag_suppress = code_is_unreachable /*cuda 10.1 doesn't throw this warning, 9.2 and down do for C++11+*/
 _r123array_tpl(1, 32, uint32_t)  /* r123array1x32 */
 _r123array_tpl(2, 32, uint32_t)  /* r123array2x32 */
 _r123array_tpl(4, 32, uint32_t)  /* r123array4x32 */
@@ -305,6 +306,7 @@ _r123array_tpl(8, 32, uint32_t)  /* r123array8x32 */
 _r123array_tpl(1, 64, uint64_t)  /* r123array1x64 */
 _r123array_tpl(2, 64, uint64_t)  /* r123array2x64 */
 _r123array_tpl(4, 64, uint64_t)  /* r123array4x64 */
+#pragma diag_default = code_is_unreachable
 
 _r123array_tpl(16, 8, uint8_t)  /* r123array16x8 for ARSsw, AESsw */
 

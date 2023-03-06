@@ -23,7 +23,7 @@
 # 	Remove all serial_SFS_code.o and EXEC_FILE from build_path
 #############################
 
-build_path = ../../../build/example_speed
+build_path = ../bin
 GSL = -I ~/gsl1.16/ 
 GSL_L = -L ~/gsl1.16/.libs -lgsl
 EXEC_FILE = SerialSim

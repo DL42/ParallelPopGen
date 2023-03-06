@@ -16,15 +16,16 @@
 #define SPECTRUM_H_
 
 #include "../3P/go_fish_data_struct.h"
+#include <memory>
 
 ///Namespace for site frequency spectrum data structure and functions. (in prototype-phase)
 namespace Spectrum{
 
 ///site frequency spectrum data structure (at the moment, functions only generate SFS for a single population at a single time point)
 struct SFS{
-	float * frequency_spectrum; ///<site frequency spectrum data structure
-	int * populations; ///<which populations are in SFS
-	int * sample_size; ///<number of samples taken for each population
+	std::unique_ptr<float[]> frequency_spectrum; ///<site frequency spectrum data structure
+	std::unique_ptr<int[]> populations; ///<which populations are in SFS
+	std::unique_ptr<unsigned int[]> sample_size; ///<number of samples taken for each population
 	int num_populations; ///<number of populations in SFS
 	float num_sites;  ///<number of sites in SFS
 	float num_mutations; ///<number of segregating mutations in SFS
@@ -33,14 +34,14 @@ struct SFS{
 	//!default constructor
 	SFS();
 	//!default destructor
-	~SFS();
+	~SFS() = default;
 };
 
 ///create a frequency histogram of mutations at a single time point \p sample_index in a single population \p population_index store in \p mySFS
 void population_frequency_histogram(SFS & mySFS, const GO_Fish::allele_trajectories & all_results, const int sample_index, const int population_index, int cuda_device = -1);
 
 ///create a single-population SFS of size \p sample_size from a single time point \p sample_index in a single population \p population_index from allele trajectory \p all_results, store in \p mySFS
-void site_frequency_spectrum(SFS & mySFS, const GO_Fish::allele_trajectories & all_results, const int sample_index, const int population_index, const int sample_size, int cuda_device = -1);
+void site_frequency_spectrum(SFS & mySFS, const GO_Fish::allele_trajectories & all_results, const int sample_index, const int population_index, const unsigned int sample_size, int cuda_device = -1);
 
 } /*----- end namespace SPECTRUM ----- */
 

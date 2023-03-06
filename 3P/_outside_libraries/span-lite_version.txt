@@ -1,0 +1,3 @@
+#define  span_VERSION "0.1.0"
+
+needed to make sure in the case of terminating program that the contract condition is actually check, elided contracts anyway

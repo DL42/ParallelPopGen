@@ -9,10 +9,10 @@
 #
 # CC := Compiler, in this case g++
 # NVCC := Compiler path, in this case nvcc is in $PATH
-# CFLAGS_CUDA := Compiler Flags for CUDA (*.cu) Files: optimize most, fast math, add API include folder to include search path, equivalent to --relocatable-device-code=true --compile
+# CFLAGS_CUDA := Compiler Flags for CUDA (*.cu) Files: optimize most, fast math, add API include folder to include search path, equivalent to --compile
 # CFLAGS_CPP := Compiler Flags for CPP (main.cpp) Files: optimize most, add API include folder to include search path, compile
 # CODE := GPU types for which to build explicitly (I have a NVIDIA GTX 780M and 980) https://developer.nvidia.com/cuda-gpus, creates machine code for code=sm_30 (780) and code=sm_52 (980) and virtual architectures for all other generations which can be compiled JIT - code=compute_30 for generations between (3.0,5.0) and code=compute_50 for generations (5.0 and up) http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#options-for-steering-gpu-code-generation
-# LIB_CUDART := Location of the CUDA Runtime API
+# LIB_CUDART := Location of the CUDA Runtime API library (on some distribution may be in lib64 or lib can make new symbolic link to actual folder or change this line)
 # 
 # cpp_object_names := CPP objects required for executable
 # cpp_objects := Prepends build path to object names
@@ -45,14 +45,14 @@
 # .PHONY := Defines 'all' as not a true target (i.e. don't remake executable if can't find a file called 'all')
 #############################
 
-build_path = ../example_compilation
+build_path = ../bin
 api_path_source = ../../3P/_internal
 api_path_include = ../../3P
 EXEC_FILE = GOFish
 
-CC = g++
-NVCC = nvcc
-CFLAGS_CUDA = -O3 --use_fast_math -I $(api_path_include)/ -dc
+CC = g++ -std=c++14
+NVCC = nvcc -std=c++14
+CFLAGS_CUDA = -O3 --use_fast_math --expt-relaxed-constexpr -I $(api_path_include)/ -c
 CFLAGS_CPP = -O3 -I $(api_path_include)/ -c
 CODE = --generate-code arch=compute_30,code=sm_30 --generate-code arch=compute_52,code=sm_52 --generate-code arch=compute_30,code=compute_30 --generate-code arch=compute_52,code=compute_52
 LIB_CUDART = -L/usr/local/cuda/lib -lcudart
@@ -60,7 +60,7 @@ LIB_CUDART = -L/usr/local/cuda/lib -lcudart
 cpp_object_names = main.o
 cpp_objects = $(addprefix $(build_path)/,$(cpp_object_names))
 
-cuda_object_names = run.o shared.o go_fish_impl.o
+cuda_object_names = run.o
 cuda_objects = $(addprefix $(build_path)/,$(cuda_object_names))
 
 all: $(build_path)/$(EXEC_FILE)
@@ -68,8 +68,6 @@ all: $(build_path)/$(EXEC_FILE)
 ##### OBJECT DEPENDENCIES #####
 $(build_path)/main.o: main.cpp run.h
 $(build_path)/run.o: run.cu run.h
-$(build_path)/shared.o: $(api_path_source)/shared.cu
-$(build_path)/go_fish_impl.o: $(api_path_source)/go_fish_impl.cu
 ##### END OBJECT DEPENDENCIES #####
 
 $(cpp_objects):

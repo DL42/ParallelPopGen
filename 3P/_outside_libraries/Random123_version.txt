@@ -1,0 +1,24 @@
+Random123-1.09
+
+Modified as below to suppress warnings of statements being out of reach in nvcc for C++11 on up:
+
+In array.h:
+
+#pragma diag_suppress = code_is_unreachable /*cuda 10.1 doesn't throw this warning, 9.2 and down do for C++11+*/
+_r123array_tpl(1, 32, uint32_t)  /* r123array1x32 */
+_r123array_tpl(2, 32, uint32_t)  /* r123array2x32 */
+_r123array_tpl(4, 32, uint32_t)  /* r123array4x32 */
+_r123array_tpl(8, 32, uint32_t)  /* r123array8x32 */
+
+_r123array_tpl(1, 64, uint64_t)  /* r123array1x64 */
+_r123array_tpl(2, 64, uint64_t)  /* r123array2x64 */
+_r123array_tpl(4, 64, uint64_t)  /* r123array4x64 */
+#pragma diag_default = code_is_unreachable
+
+
+NVCC for Cuda 9.2 and below causes these warning messages when compiling device code using cudafe which is based on C++ Front End from the Edison Design Group. CUDA 10.1 does not throw this warning.
+
+https://devtalk.nvidia.com/default/topic/370952/cuda-programming-and-performance/disable-a-warning-/post/2657698/#2657698
+
+http://www.edg.com/docs/edg_cpp.pdf page 75# downloaded as cudaFE_edg_cpp.pdf
+specific warnings found http://www.ssl.berkeley.edu/~jimm/grizzly_docs/SSL/opt/intel/cc/9.0/lib/locale/en_US/mcpcom.msg  downloaded as cudaFE_pragma_warnings.webarchive

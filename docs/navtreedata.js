@@ -17,7 +17,7 @@ var NAVTREE =
         ] ]
       ] ]
     ] ],
-    [ "Parallel PopGen Package v0.3 README", "md__r_e_a_d_m_e.html", null ],
+    [ "Parallel PopGen Package v0.3 README", "md_src__r_e_a_d_m_e.html", null ],
     [ "Modules", "modules.html", "modules" ],
     [ "Namespaces", null, [
       [ "Namespace List", "namespaces.html", "namespaces" ],

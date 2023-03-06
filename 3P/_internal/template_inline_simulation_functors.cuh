@@ -8,11 +8,257 @@
 #ifndef TEMPLATE_INLINE_SIMULATION_FUNCTORS_CUH_
 #define TEMPLATE_INLINE_SIMULATION_FUNCTORS_CUH_
 
-/** Functions for modeling selection, inbreeding, mutation, dominance, demography, migration across populations and over time as well as functions to preserve mutations in a generation and to sample time points in the simulation. \n
-* \n Use of these functions is optional as users can supply their own with the same given format, for details on how to write your own simulation functions, go to the <a href="modules.html">Modules</a> page, click on the simulation function group which describes the function you wish to write, and read its detailed description.
-* \n\n To use Sim_Mut functions and objects, include header file: go_fish.cuh
+/** Namespace contains functions for modeling selection, inbreeding, mutation, dominance, demography, migration. \n
+* \n Use of these functions is optional as users can supply their own, for details on how to write your own simulation functions, go to the <a href="modules.html">Modules</a> page, click on the simulation function group which describes the function you wish to write, and read its detailed description.
+* \n\n To use Sim_Model functions and objects, include header file: go_fish.cuh
 */
 namespace Sim_Model{
+
+namespace details{
+
+struct population_specific{
+	static constexpr std::size_t num_params = 1;
+	unsigned int population;
+	population_specific(unsigned int pop) : population(pop) {}
+	template<typename... Args>
+	__host__ __device__  bool operator()(const unsigned int gen, const unsigned int pop, Args... rest) const { return population == pop; }
+};
+
+struct directional_migration{
+	static constexpr std::size_t num_params = 2;
+	unsigned int pop_FROM, pop_TO;
+	directional_migration(unsigned int pop_from, unsigned int pop_to) : pop_FROM(pop_from), pop_TO(pop_to) {}
+	__host__ __device__  bool operator()(const unsigned int gen, const unsigned int pop_from, const unsigned int pop_to) const { return (pop_FROM == pop_from && pop_TO == pop_to); }
+};
+
+struct piecewise{
+	static constexpr std::size_t num_params = 1;
+	unsigned int generation;
+	piecewise(unsigned int gen) : generation(gen) {}
+	template<typename... Args>
+	__host__ __device__  bool operator()(const unsigned int gen, Args... rest) const { return generation <= gen; }
+};
+
+struct piecewise_pop_specific{
+	static constexpr std::size_t num_params = 2;
+	unsigned int generation, population;
+	piecewise_pop_specific(unsigned int gen, unsigned int pop) : generation(gen), population(pop) {}
+	template<typename... Args>
+	__host__ __device__  bool operator()(const unsigned int gen, const unsigned int pop, Args... rest) const { return (population == pop && generation <= gen); }
+};
+
+struct piecewise_directional_migration{
+	static constexpr std::size_t num_params = 3;
+	unsigned int generation, pop_FROM, pop_TO;
+	piecewise_directional_migration(unsigned int gen, unsigned int pop_from, unsigned int pop_to) : generation(gen), pop_FROM(pop_from), pop_TO(pop_to) {}
+	__host__ __device__  bool operator()(const unsigned int gen, const unsigned int pop_from, const unsigned int pop_to) const { return (pop_FROM == pop_from && pop_TO == pop_to && generation <= gen); }
+};
+
+template <typename Pred_function, typename Default_evo_function, typename... Evol_functions>
+struct list_of_functions{
+	Default_evo_function myDefault;
+	std::tuple<std::pair<Evol_functions,Pred_function>...> func_list;
+
+	template <typename... Args>
+	__host__ __device__ auto operator()(Args... args) const{ //need to reverse if statement order for piecewise generation or institute intervals
+		constexpr std::size_t my_tuple_size = std::tuple_size<decltype(func_list)>::value;
+		return operator_helper_overall<my_tuple_size>(std::make_index_sequence<my_tuple_size>{},args...);
+	}
+
+	private:
+		template <std::size_t N, std::size_t... I, typename... Args>
+		__host__ __device__  auto operator_helper_overall(std::index_sequence<I...>, Args... args) const {
+			return operator_helper<N-1,I...>(args...);
+		}
+
+		template <std::size_t Last, std::size_t First, std::size_t Second, std::size_t... rest, typename... Args>
+		__host__ __device__  auto operator_helper(Args... args) const {
+			if(std::get<1>(std::get<Last-First>(func_list))(args...)){ return std::get<0>(std::get<Last-First>(func_list))(args...); }
+			else if(std::get<1>(std::get<Last-Second>(func_list))(args...)){ return std::get<0>(std::get<Last-Second>(func_list))(args...); }
+			return operator_helper<Last,rest...>(args...);
+		}
+
+		template <std::size_t Last, std::size_t First, typename... Args>
+		__host__ __device__  auto operator_helper(Args... args) const {
+			if(std::get<1>(std::get<Last-First>(func_list))(args...)){ return std::get<0>(std::get<Last-First>(func_list))(args...); }
+			return myDefault(args...);
+		}
+
+		template <std::size_t Last, typename... Args>
+		__host__ __device__  auto operator_helper(Args... args) const {
+			return myDefault(args...);
+		}
+};
+
+template<std::size_t Start, typename Pred_function, typename... Args, std::size_t... J>
+auto make_pair_helper(const std::tuple<Args...> & helper_tuple, std::index_sequence<J...>){
+	return std::make_pair(std::get<Start+sizeof...(J)>(helper_tuple), Pred_function(std::get<Start+J>(helper_tuple)...));
+}
+
+template <typename Pred_function, typename Default_evo_function, typename... Args, std::size_t... I>
+auto make_struct_helper(Default_evo_function defaultFun, const std::tuple<Args...> & helper_tuple, std::index_sequence<I...>){
+	constexpr std::size_t P = Pred_function::num_params+1;
+	return list_of_functions<Pred_function, Default_evo_function, std::tuple_element_t<P*I+P-1,std::tuple<Args...>>...>{defaultFun, std::make_tuple(make_pair_helper<P*I,Pred_function>(helper_tuple, std::make_index_sequence<(P-1)>{})...)};
+}
+
+template <typename Pred_function, typename Default_evo_function, typename... Args>
+auto make_master_helper(Default_evo_function defaultFun, Args... args_in){
+	constexpr std::size_t P = Pred_function::num_params+1;
+	return make_struct_helper<Pred_function>(defaultFun, std::make_tuple(args_in...), std::make_index_sequence<(sizeof...(Args)/P)>{});
+}
+
+
+} /* ----- end namespace Sim_Model::details ----- */
+
+/* ----- translate effective parameter to coefficient ----- */
+/**\param population_size population size in individuals \n \param inbreeding inbreeding coefficient 0 (diploid) to 1 (haploid) */
+inline effective_parameter::effective_parameter(float population_size, float inbreeding): N(round(population_size)), F(inbreeding) {}
+template <typename Functor_demography, typename Functor_inbreeding>
+/**`N = population_size(generation,population)` and `F = inbreeding(generation,population)`
+ * \param generation and \param population
+ * */
+inline effective_parameter::effective_parameter(Functor_demography population_size, Functor_inbreeding inbreeding, unsigned int generation, unsigned int population) : effective_parameter(population_size(generation,population), inbreeding(generation,population)) {}
+/** returns `effective_parameter/(2*N/(1+F))` */
+inline float effective_parameter::operator()(float effective_parameter) const { return (1.f+F)*effective_parameter/(2.f*N); }
+/* ----- end translate effective parameter to coefficient ----- */
+
+/* ----- constant parameter model ----- */
+inline constant_parameter::constant_parameter() : p(0) {}
+inline constant_parameter::constant_parameter(float p) : p(p){ }
+template<typename... Args>
+__host__ __device__ __forceinline__ float constant_parameter::operator()(Args...) const { return p; }
+/* ----- end constant parameter model ----- */
+
+/* ----- constant effective parameter model ----- */
+template <typename Functor_demography, typename Functor_inbreeding>
+inline constant_effective_parameter<Functor_demography,Functor_inbreeding>::constant_effective_parameter(float p, float reference_population_size, float reference_inbreeding, Functor_demography population_size, Functor_inbreeding inbreeding) : p(p), reference_Nchrom_e(2*reference_population_size/(1+reference_inbreeding)), N(population_size), F(inbreeding){ }
+template <typename Functor_demography, typename Functor_inbreeding>
+template <typename... Args>
+__host__ __device__ __forceinline__ float constant_effective_parameter<Functor_demography,Functor_inbreeding>::operator()(const unsigned int generation, const unsigned int population, Args...) const {
+	return p*reference_Nchrom_e*(1+F(generation, population))/2*N(generation, population);
+}
+/* ----- end constant effective parameter model ----- */
+
+template <typename Functor_demography, typename Functor_inbreeding>
+auto make_constant_effective_parameter(float p, float reference_population_size, float reference_inbreeding, Functor_demography population_size, Functor_inbreeding inbreeding){
+	return constant_effective_parameter<Functor_demography,Functor_inbreeding>(p, reference_population_size, reference_inbreeding, population_size, inbreeding);
+}
+
+/* ----- linear generation model ----- */
+inline linear_generation_parameter::linear_generation_parameter(): slope(0), intercept(0), start_generation(0){}
+inline linear_generation_parameter::linear_generation_parameter(float start_parameter, float end_parameter, unsigned int start_generation, unsigned int end_generation): slope((end_parameter-start_parameter)/(end_generation-start_generation)), intercept(start_parameter), start_generation(start_generation){};
+template <typename... Args>
+__host__ __device__ __forceinline__ float linear_generation_parameter::operator()(const unsigned int generation, Args...) const { return slope*(generation-start_generation)+intercept; }
+/* ----- end linear generation model ----- */
+
+/* ----- seasonal parameter model ----- */
+inline sine_generation_parameter::sine_generation_parameter() : A(0), pi(0), rho(0), D(0), start_generation(0) {}
+/**\param rho (optional input) default `0` \param start_generation (optional input) default `0` */
+inline sine_generation_parameter::sine_generation_parameter(float A, float pi, float D, float rho /*= 0*/, unsigned int start_generation /*= 0*/) : A(A), pi(pi), rho(rho), D(D), start_generation(start_generation) {}
+/** return `A*sin(pi*(generation-start_generation) + rho) + D` */
+template <typename... Args>
+__host__ __device__ __forceinline__ float sine_generation_parameter::operator()(const unsigned int generation, Args...) const{ return A*sin(pi*(generation-start_generation) + rho) + D;}
+/* ----- end seasonal parameter model ----- */
+
+/* ----- exponential generation model ----- */
+inline exponential_generation_parameter::exponential_generation_parameter() : rate(0), initial_parameter_value(0), start_generation(0) {}
+/** \param start_generation (optional input) default `0` */
+inline exponential_generation_parameter::exponential_generation_parameter(float initial_parameter_value, float rate, unsigned int start_generation /*= 0*/) : initial_parameter_value(initial_parameter_value), rate(rate), start_generation(start_generation) { }
+/** `rate = log(final_parameter_value/initial_parameter_value)/(end_generation-start_generation)` */
+inline exponential_generation_parameter::exponential_generation_parameter(float initial_parameter_value, float final_parameter_value, unsigned int start_generation, unsigned int end_generation) : initial_parameter_value(initial_parameter_value), start_generation(start_generation) { rate = log(final_parameter_value/initial_parameter_value)/(end_generation-start_generation); }
+/** `N = round(initial_population_size*`\f$e^{\textrm{rate*(generation-start_generation)}} \f$`)` */
+template <typename... Args>
+__host__ __device__  __forceinline__ float exponential_generation_parameter::operator()(const unsigned int generation, Args...) const{ return initial_parameter_value*exp(rate*(generation-start_generation)); }
+/* ----- end exponential generation model ----- */
+
+/* ----- logistic generation model ----- */
+inline logistic_generation_parameter::logistic_generation_parameter() : rate(0), initial_parameter_value(0), carrying_capacity(0), start_generation(0) {}
+/** \param start_generation (optional input) default `0` */
+inline logistic_generation_parameter::logistic_generation_parameter(float initial_parameter_value, float carrying_capacity, float rate, unsigned int start_generation /*= 0*/) : initial_parameter_value(initial_parameter_value), carrying_capacity(carrying_capacity), rate(rate), start_generation(start_generation) { }
+/** `rate = log(Ai/Af)/(end_generation-start_generation)` where `Ax` := `(carrying_capacity - x)/x` and `i` := `initial_parameter_value` and `f` := final_parameter_value` */
+inline logistic_generation_parameter::logistic_generation_parameter(float initial_parameter_value, float carrying_capacity, float final_parameter_value, unsigned int start_generation, unsigned int end_generation) : initial_parameter_value(initial_parameter_value), carrying_capacity(carrying_capacity), start_generation(start_generation) {
+	float Ai = (carrying_capacity - initial_parameter_value)/initial_parameter_value;
+	float Af = (carrying_capacity - final_parameter_value)/final_parameter_value;
+	rate = log(Ai/Af)/(end_generation-start_generation);
+}
+/** `exp_term = `\f$e^{\textrm{rate*(generation-start_generation)}} \f$ \n
+ * `N = round((carrying_capacity*initial_population_size*exp_term)`\f$\div\f$`(carrying_capacity + initial_population_size*(exp_term-1)))` */
+template <typename... Args>
+__host__ __device__  __forceinline__ float logistic_generation_parameter::operator()(const unsigned int generation, Args...) const{
+	float term = exp(rate*(generation-start_generation));
+	return carrying_capacity*initial_parameter_value*term/(carrying_capacity + initial_parameter_value*(term-1));
+}
+/* ----- end logistic generation model ----- */
+
+/* ----- linear frequency dependent dominance and selection model ----- */
+/**\struct linear_frequency_h_s
+ *  when modeling selection:
+ * `(slope < 0)` := balancing selection model (negative frequency-dependent selection) \n
+ * `(slope = 0)` := constant selection \n
+ * `(slope > 0)` := reinforcement selection model (positive frequency-dependent selection) \n
+ * */
+inline linear_frequency_h_s::linear_frequency_h_s() : slope(0), intercept(0) {}
+/** \param start_parameter := parameter at frequency 0
+ *  \param start_parameter := parameter at frequency 1
+ *   `slope = end_parameter - start_parameter`\n
+ *   `intercept = start_parameter`
+ */
+inline linear_frequency_h_s::linear_frequency_h_s(float start_parameter, float end_parameter_slope, bool is_slope): intercept(start_parameter), slope(is_slope ? end_parameter_slope : end_parameter_slope - start_parameter) { }
+/** return `slope*freq + intercept` */
+__host__ __device__ __forceinline__ float linear_frequency_h_s::operator()(const unsigned int population, const unsigned int generation, const float freq) const { return slope*freq+intercept; }
+/* ----- end linear frequency dependent dominance and selection model ----- */
+
+linear_frequency_h_s make_stabilizing_selection_model(float effect_size, float variance){
+	float e_s = effect_size*effect_size/(2*variance);
+	return linear_frequency_h_s(-1*e_s,2*e_s,true);
+}
+
+/* ----- hyperbola frequency dependent dominance and selection model ----- */
+inline hyperbola_frequency_h_s::hyperbola_frequency_h_s() : A(0), B(-1), C(0.5) {}
+inline hyperbola_frequency_h_s::hyperbola_frequency_h_s(float A, float B, float C): A(A), B(B), C(C) {}
+inline hyperbola_frequency_h_s::hyperbola_frequency_h_s(linear_frequency_h_s numerator, linear_frequency_h_s denominator){
+	A = numerator.intercept/denominator.slope - denominator.intercept*numerator.slope/pow(denominator.slope,2.f);
+	B = -1.f*denominator.intercept/denominator.slope;
+	C = numerator.slope/denominator.slope;
+}
+__host__ __device__ __forceinline__ float hyperbola_frequency_h_s::operator()(const unsigned int generation, const unsigned int population, const float freq) const {
+	if(freq == B) return 0.f; //doesn't matter here, normally used for dominance => when freq = B, selection = 0 anyway
+	return A/(freq-B) + C;
+}
+/* ----- end hyperbola frequency dependent dominance and selection model ----- */
+
+hyperbola_frequency_h_s make_stabilizing_dominance_model(){ return hyperbola_frequency_h_s(1.f/8.f, 1.f/2.f, 1.f/2.f); }
+
+template <typename Default_fun, typename... List>
+auto make_population_specific_evolution_model(Default_fun defaultFun, List... list){ return details::make_master_helper<details::population_specific>(defaultFun, list...); }
+
+template <typename Default_fun, typename... List>
+auto make_directional_migration_model(Default_fun defaultFun, List... list){ return details::make_master_helper<details::directional_migration>(defaultFun, list...); }
+
+template <typename Start_fun, typename... List>
+auto make_piecewise_evolution_model(Start_fun defaultFun, List... list){ return details::make_master_helper<details::piecewise>(defaultFun, list...); }
+
+template <typename Default_Start_fun, typename... List>
+auto make_piecewise_population_specific_model(Default_Start_fun defaultFun, List... list){ return details::make_master_helper<details::piecewise_pop_specific>(defaultFun, list...); }
+
+template <typename Default_Start_fun, typename... List>
+auto make_piecewise_directional_migration_model(Default_Start_fun defaultFun, List... list){ return details::make_master_helper<details::piecewise_directional_migration>(defaultFun, list...); }
+
+standard_mse_integrand::standard_mse_integrand(): N(0), s(0), h(0), F(0) {}
+template <typename Functor_demography, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance>
+standard_mse_integrand::standard_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop): N(round(dem(gen,pop))), F(f_inbred(gen,pop)), s(max(sel_coeff(gen,pop,0.5),-1.f)), h(dominance(gen,pop,0.5)) { } //this model doesn't allow frequency dependent selection
+__host__ __device__ double standard_mse_integrand::operator()(double i) const{ return exp(-2*N*s*i*((2*h+(1-2*h)*i)*(1-F)+2*F)/(1+F)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
+__host__ __device__ bool standard_mse_integrand::neutral() const{ return s==0; }
+
+stabilizing_mse_integrand::stabilizing_mse_integrand():constant(0) {}
+template <typename Functor_demography, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance>
+stabilizing_mse_integrand::stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop) {
+	float N(round(dem(gen,pop))), F(f_inbred(gen,pop)), e_s((max(sel_coeff(gen,pop,1),-1.f) - max(sel_coeff(gen,pop,0),-1.f))/2.f);
+
+	constant = -4*N*e_s*((1-F)/4+F)/(1+F);
+}
+__host__ __device__ double stabilizing_mse_integrand::operator()(double i) const{ return exp(constant*(i*i-i)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
+__host__ __device__ bool stabilizing_mse_integrand::neutral() const{ return constant==0; }
 
 /** \addtogroup selection
 *  \brief Functions that model selection coefficients (\p s) across populations and over time
@@ -33,7 +279,7 @@ namespace Sim_Model{
 *
 *  ###Writing your own Selection functions###
 *  These can be functions or functors (or soon, with C++11 support, lambdas). However, the selection function must be of the form:\n
-*  \code __device__ float your_function(int population, int generation, float freq){ ... return selection_coeff; } \endcode
+*  \code __device__ float your_function(int population, unsigned int generation, float freq){ ... return selection_coeff; } \endcode
 *  This returns the selection coefficient in population \p population at generation \p generation for a mutation at frequency \p freq.
 *  The `__device__` flag is to ensure the nvcc compiler knows the function must be compiled for the device (GPU).
 *  Because of this flag, the function must be defined in CUDA source file (*.cu) or declared/defined header file (*.h, *.hpp, *.cuh, etc...) which is included in a CUDA source file.
@@ -41,56 +287,6 @@ namespace Sim_Model{
 *  And even then avoid them as they will slow the code down (parameters have to be pulled from the GPU's global memory (vRAM), which is slow).
 *  Statically allocated arrays (e.g. `float f[5]`) are fine.
 */
-
-/* ----- constant selection model ----- */
-inline selection_constant::selection_constant() : s(0) {}
-inline selection_constant::selection_constant(float s) : s(s){ }
-/**`s = gamma/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)))`\n
- * \param forward_generation_shift (optional input) default `0` \n allows you to push the population size and inbreeding coefficient value to the state forward in time - useful
- * if you are starting the simulation from a previous simulation state and are using the same functions as the previous simulation or any time you want to shift the generation of the demography and inbreeding functions from 0 \n */
-template <typename Functor_demography, typename Functor_inbreeding>
-inline selection_constant::selection_constant(float gamma, Functor_demography demography, Functor_inbreeding F, int forward_generation_shift /*= 0*/){ s = gamma/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift))); }
-__device__ __forceinline__ float selection_constant::operator()(const int population, const int generation, const float freq) const{ return s; }
-/* ----- end constant selection model ----- */
-
-/* ----- linear frequency dependent selection model ----- */
-/**\struct selection_linear_frequency_dependent
- * `(slope < 0)` := balancing selection model (negative frequency-dependent selection) \n
- * `(slope = 0)` := constant selection \n
- * `(slope > 0)` := reinforcement selection model (positive frequency-dependent selection) \n
- * */
-inline selection_linear_frequency_dependent::selection_linear_frequency_dependent() : slope(0), intercept(0) {}
-inline selection_linear_frequency_dependent::selection_linear_frequency_dependent(float slope, float intercept) : slope(slope), intercept(intercept) { }
-/**`slope = gamma_slope/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)))`\n
- * `intercept = gamma_intercept/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)))`\n
- * \param forward_generation_shift (optional input) default `0` \n allows you to push the population size and inbreeding coefficient value to the state forward in time - useful
- * if you are starting the simulation from a previous simulation state and are using the same functions as the previous simulation or any time you want to shift the generation of the demography and inbreeding functions from 0 \n */
-template <typename Functor_demography, typename Functor_inbreeding>
-inline selection_linear_frequency_dependent::selection_linear_frequency_dependent(float gamma_slope, float gamma_intercept, Functor_demography demography, Functor_inbreeding F, int forward_generation_shift /*= 0*/){
-	slope = gamma_slope/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)));
-	intercept = gamma_intercept/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)));
-}
-/** `s = slope*freq + intercept` */
-__device__ __forceinline__ float selection_linear_frequency_dependent::operator()(const int population, const int generation, const float freq) const{ return slope*freq+intercept; }
-/* ----- end linear frequency dependent selection model ----- */
-
-/* ----- seasonal selection model ----- */
-inline selection_sine_wave::selection_sine_wave() : A(0), pi(0), rho(0), D(0), generation_shift(0) {}
-/**\param rho (optional input) default `0` \param generation_shift (optional input) default `0` */
-inline selection_sine_wave::selection_sine_wave(float A, float pi, float D, float rho /*= 0*/, int generation_shift /*= 0*/) : A(A), pi(pi), rho(rho), D(D), generation_shift(generation_shift) {}
-/**`A = gamma_A/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)))`\n
- * `D = gamma_D/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)))`\n
- * \param rho (optional input) default `0` \param generation_shift (optional input) default `0`
- * \param forward_generation_shift (optional input) default `0` \n allows you to push the population size and inbreeding coefficient value to the state forward in time - useful
- * if you are starting the simulation from a previous simulation state and are using the same functions as the previous simulation or any time you want to shift the generation of the demography and inbreeding functions from 0 \n */
-template <typename Functor_demography, typename Functor_inbreeding>
-inline selection_sine_wave::selection_sine_wave(float gamma_A, float pi, float gamma_D, Functor_demography demography, Functor_inbreeding F, float rho /*= 0*/, int generation_shift /*= 0*/, int forward_generation_shift /*= 0*/) : pi(pi), rho(rho), generation_shift(generation_shift) {
-	A = gamma_A/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)));
-	D = gamma_D/(2*demography(0,forward_generation_shift)/(1+F(0,forward_generation_shift)));
-}
-/** `s = A*sin(pi*(generation-generation_shift) + rho) + D` */
-__device__ __forceinline__ float selection_sine_wave::operator()(const int population, const int generation, const float freq) const{ return A*sin(pi*(generation-generation_shift) + rho) + D;}
-/* ----- end seasonal selection model ----- */
 
 /* ----- population specific selection model ----- */
 /** \struct selection_population_specific
@@ -108,21 +304,6 @@ __device__ __forceinline__ float selection_sine_wave::operator()(const int popul
 	Sim_Model::selection_population_specific<population_specific_constant,piecewise_constant> selection_model(first_second,third,2); \endcode
 	The modularity of these functor templates allow selection models to be extended to any number of populations and piecewise selection functions (including user defined functions).
  * */
-/**`pop = 0` \n `generation_shift = 0` \n
-Function `s` assigned default constructor of `Functor_sel`\n
-Function `s_pop` assigned default constructor of `Functor_sel_pop`*/
-template <typename Functor_sel, typename Functor_sel_pop>
-inline selection_population_specific<Functor_sel,Functor_sel_pop>::selection_population_specific() : pop(0), generation_shift(0) { s = Functor_sel(); s_pop = Functor_sel_pop(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_sel, typename Functor_sel_pop>
-inline selection_population_specific<Functor_sel,Functor_sel_pop>::selection_population_specific(Functor_sel s_in, Functor_sel_pop s_pop_in, int pop, int generation_shift /*= 0*/) : pop(pop), generation_shift(generation_shift){  s = s_in; s_pop = s_pop_in; }
-/** `if(pop == population) s = s_pop(population, generation-generation_shift, freq)`\n
-	`else s = s(population, generation-generation_shift, freq)` */
-template <typename Functor_sel, typename Functor_sel_pop>
-__device__ __forceinline__ float selection_population_specific<Functor_sel,Functor_sel_pop>::operator()(const int population, const int generation, const float freq) const{
-	if(pop == population) return s_pop(population, generation-generation_shift, freq);
-	return s(population, generation-generation_shift, freq);
-}
 /* ----- end population specific selection model ----- */
 
 /* ----- piecewise selection model ----- */
@@ -141,23 +322,7 @@ __device__ __forceinline__ float selection_population_specific<Functor_sel,Funct
 	Sim_Model::selection_population_specific<population_specific_constant,piecewise_constant> selection_model(first_second,third,2);\endcode
 	The modularity of these functor templates allow selection models to be extended to any number of populations and piecewise selection functions (including user defined functions).
  */
-/**`inflection_point = 0` \n `generation_shift = 0` \n
-Function `s1` assigned default constructor of `Functor_sel1`\n
-Function `s2` assigned default constructor of `Functor_sel2`*/
-template <typename Functor_sel1, typename Functor_sel2>
-inline selection_piecewise<Functor_sel1, Functor_sel2>::selection_piecewise() : inflection_point(0), generation_shift(0) { s1 = Functor_sel1(); s2 = Functor_sel2(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_sel1, typename Functor_sel2>
-inline selection_piecewise<Functor_sel1, Functor_sel2>::selection_piecewise(Functor_sel1 s1_in, Functor_sel2 s2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { s1 = s1_in; s2 = s2_in; }
-/** `if(generation >= inflection_point+generation_shift) s = s2(population, generation-generation_shift, freq)`\n
-	`else s = s1(population, generation-generation_shift, freq)` */
-template <typename Functor_sel1, typename Functor_sel2>
-__device__ __forceinline__ float selection_piecewise<Functor_sel1, Functor_sel2>::operator()(const int population, const int generation, const float freq) const{
-	if(generation >= inflection_point+generation_shift){ return s2(population, generation-generation_shift, freq) ; }
-	return s1(population, generation-generation_shift, freq);
-};
 /* ----- end piecewise selection model ----- */
-/* ----- end selection models ----- */
 
 /** \addtogroup in_mut_dom
 *  \brief Functions that model inbreeding coefficients (\p F), per-site mutation rates (\p mu), and dominance coefficients (\p h) across populations and over time
@@ -169,26 +334,12 @@ __device__ __forceinline__ float selection_piecewise<Functor_sel1, Functor_sel2>
 *  \n
 *  ###Writing your own Inbreeding, Mutation, and Dominance functions###
 *  These can be functions or functors (or soon, with C++11 support, lambdas). However, the parameter function must be of the form:\n
-*  \code float your_function(int population, int generation){ ... return parameter; } \endcode
+*  \code float your_function(int population, unsigned int generation){ ... return parameter; } \endcode
 *  This returns the parameter in population \p population at generation \p generation.
 *  Adding a `__host__` flag is optional, but if done, the function must be defined in CUDA source file (*.cu) or declared/defined header file (*.h, *.hpp, *.cuh, etc...) which is included in a CUDA source file.
 *  If no flag added, function can be defined in a regular C/C++ source file (e.g. *.c, *.cpp).
 *  Note: run_sim is required to be in a CUDA source file to be compiled.
 */
-
-/* ----- inbreeding, mutation, & dominance models ----- */
-/* ----- constant parameter model ----- */
-inline F_mu_h_constant::F_mu_h_constant() : p(0) {}
-inline F_mu_h_constant::F_mu_h_constant(float p) : p(p){ }
-__host__ __forceinline__ float F_mu_h_constant::operator()(const int population, const int generation) const{ return p; }
-/* ----- end constant parameter model ----- */
-
-/* ----- seasonal parameter model ----- */
-inline F_mu_h_sine_wave::F_mu_h_sine_wave() : A(0), pi(0), rho(0), D(0), generation_shift(0) {}
-inline F_mu_h_sine_wave::F_mu_h_sine_wave(float A, float pi, float D, float rho /*= 0*/, int generation_shift /*= 0*/) : A(A), pi(pi), rho(rho), D(D), generation_shift(generation_shift) {}
-/** `p = A*sin(pi*(generation-generation_shift) + rho) + D` */
-__host__ __forceinline__ float F_mu_h_sine_wave::operator()(const int population, const int generation) const{ return A*sin(pi*(generation-generation_shift) + rho) + D;}
-/* ----- end seasonal parameter model ----- */
 
 /* ----- population specific parameter model ----- */
 /** \struct F_mu_h_population_specific
@@ -206,21 +357,6 @@ __host__ __forceinline__ float F_mu_h_sine_wave::operator()(const int population
 	Sim_Model::F_mu_h_population_specific<F_population_specific_constant,F_piecewise_constant> inbreeding_model(first_second,third,2); \endcode
 	The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  * */
-/**`pop = 0` \n `generation_shift = 0` \n
-Function `p` assigned default constructor of `Functor_p`\n
-Function `p_pop` assigned default constructor of `Functor_p_pop`*/
-template <typename Functor_p, typename Functor_p_pop>
-inline F_mu_h_population_specific<Functor_p,Functor_p_pop>::F_mu_h_population_specific() : pop(0), generation_shift(0) { p = Functor_p(); p_pop = Functor_p_pop(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_p, typename Functor_p_pop>
-inline F_mu_h_population_specific<Functor_p,Functor_p_pop>::F_mu_h_population_specific(Functor_p p_in, Functor_p_pop p_pop_in, int pop, int generation_shift /*= 0*/) : pop(pop), generation_shift(generation_shift){  p = p_in; p_pop = p_pop_in; }
-/** `if(pop == population) p = p_pop(population, generation-generation_shift)`\n
-	`else p = p(population, generation-generation_shift)` */
-template <typename Functor_p, typename Functor_p_pop>
-__host__ __forceinline__ float F_mu_h_population_specific<Functor_p,Functor_p_pop>::operator()(const int population, const int generation) const{
-	if(pop == population) return p_pop(population, generation-generation_shift);
-	return p(population, generation-generation_shift);
-}
 /* ----- end population specific parameter model ----- */
 
 /* ----- piecewise parameter model ----- */
@@ -239,23 +375,6 @@ __host__ __forceinline__ float F_mu_h_population_specific<Functor_p,Functor_p_po
 	Sim_Model::F_mu_h_population_specific<F_population_specific_constant,F_piecewise_constant> inbreeding_model(first_second,third,2); \endcode
 	The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  * */
-/**`inflection_point = 0` \n `generation_shift = 0` \n
-Function `p1` assigned default constructor of `Functor_p1`\n
-Function `p2` assigned default constructor of `Functor_p2`*/
-template <typename Functor_p1, typename Functor_p2>
-inline F_mu_h_piecewise<Functor_p1, Functor_p2>::F_mu_h_piecewise() : inflection_point(0), generation_shift(0) { p1 = Functor_p1(); p2 = Functor_p2(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_p1, typename Functor_p2>
-inline F_mu_h_piecewise<Functor_p1, Functor_p2>::F_mu_h_piecewise(Functor_p1 p1_in, Functor_p2 p2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { p1 = p1_in; p2 = p2_in; }
-/** `if(generation >= inflection_point+generation_shift) p = p2(population, generation-generation_shift)`\n
-	`else p = p1(population, generation-generation_shift)` */
-template <typename Functor_p1, typename Functor_p2>
-__host__ __forceinline__ float F_mu_h_piecewise<Functor_p1, Functor_p2>::operator()(const int population, const int generation) const{
-	if(generation >= inflection_point+generation_shift){ return p2(population, generation-generation_shift) ; }
-	return p1(population, generation-generation_shift);
-};
-/* ----- end piecewise parameter model ----- */
-/* ----- end of inbreeding, mutation, & dominance models models ----- */
 
 /** \addtogroup demography
 *  \brief Functions that model population size in number of individuals across populations and over time
@@ -268,7 +387,7 @@ __host__ __forceinline__ float F_mu_h_piecewise<Functor_p1, Functor_p2>::operato
 *
 *  ###Writing your own Demography functions###
 *  These can be functions or functors (or soon, with C++11 support, lambdas). However, the demographic function must be of the form:\n
-*  \code __host__ __device__ int your_function(int population, int generation){ ... return number_of_individuals; } \endcode
+*  \code __host__ __device__ int your_function(int population, unsigned int generation){ ... return number_of_individuals; } \endcode
 *  This returns the number of individuals in population \p population at generation \p generation.
 *  The `__host__` and `__device__` flags are to ensure the nvcc compiler knows the function must be compiled for both the host (CPU) and device (GPU).
 *  Because of these flags, the function must be defined in CUDA source file (*.cu) or declared/defined header file (*.h, *.hpp, *.cuh, etc...) which is included in a CUDA source file.
@@ -276,39 +395,6 @@ __host__ __forceinline__ float F_mu_h_piecewise<Functor_p1, Functor_p2>::operato
 *  And even then avoid them as they will slow the code down (parameters have to be pulled from the GPU's global memory (vRAM), which is slow).
 *  Statically allocated arrays (e.g. `int f[5]`) are fine.
 */
-
-/* ----- demography models ----- */
-/* ----- constant demography model ----- */
-inline demography_constant::demography_constant() : N(0) {}
-inline demography_constant::demography_constant(int N) : N(N){ }
-__host__ __device__  __forceinline__ int demography_constant::operator()(const int population, const int generation) const{ return N; }
-/* ----- end constant demography model ----- */
-
-/* ----- seasonal demography model ----- */
-inline demography_sine_wave::demography_sine_wave() : A(0), pi(0), rho(0), D(0), generation_shift(0) {}
-inline demography_sine_wave::demography_sine_wave(float A, float pi, int D, float rho /*= 0*/, int generation_shift /*= 0*/) : A(A), pi(pi), rho(rho), D(D), generation_shift(generation_shift) {}
-/** `N = A*sin(pi*(generation-generation_shift) + rho) + D` */
-__host__ __device__  __forceinline__ int demography_sine_wave::operator()(const int population, const int generation) const{ return (int)A*sin(pi*(generation-generation_shift) + rho) + D;}
-/* ----- end seasonal parameter model ----- */
-
-/* ----- exponential growth model ----- */
-inline demography_exponential_growth::demography_exponential_growth() : rate(0), initial_population_size(0), generation_shift(0) {}
-/** \param generation_shift (optional input) default `0` */
-inline demography_exponential_growth::demography_exponential_growth(float rate, int initial_population_size, int generation_shift /*= 0*/) : rate(rate), initial_population_size(initial_population_size), generation_shift(generation_shift) {}
-/** `N = round(initial_population_size*`\f$e^{\textrm{rate*(generation-generation_shift)}} \f$`)` */
-__host__ __device__  __forceinline__ int demography_exponential_growth::operator()(const int population, const int generation) const{ return (int)round(initial_population_size*exp(rate*(generation-generation_shift))); }
-/* ----- end exponential growth model ----- */
-
-/* ----- logistic growth model ----- */
-inline demography_logistic_growth::demography_logistic_growth() : rate(0), initial_population_size(0), carrying_capacity(0), generation_shift(0) {}
-inline demography_logistic_growth::demography_logistic_growth(float rate, int initial_population_size, int carrying_capacity, int generation_shift /*= 0*/) : rate(rate), initial_population_size(initial_population_size), carrying_capacity(carrying_capacity), generation_shift(generation_shift) {}
-/** `exp_term = `\f$e^{\textrm{rate*(generation-generation_shift)}} \f$ \n
- * `N = round((carrying_capacity*initial_population_size*exp_term)`\f$\div\f$`(carrying_capacity + initial_population_size*(exp_term-1)))` */
-__host__ __device__  __forceinline__ int demography_logistic_growth::operator()(const int population, const int generation) const{
-	float term = exp(rate*(generation-generation_shift));
-	return (int)round(carrying_capacity*initial_population_size*term/(carrying_capacity + initial_population_size*(term-1)));
-}
-/* ----- end logistic growth model ----- */
 
 /* ----- population specific demography model ----- */
 /** \struct demography_population_specific
@@ -338,21 +424,6 @@ __host__ __device__  __forceinline__ int demography_logistic_growth::operator()(
    Sim_Model::migration_piecewise<split_pop0_gen1,mig_const_equal> migration_model(m_generation_1,m0,2); //no further migration between groups \endcode
    The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  **/
-/**`pop = 0` \n `generation_shift = 0` \n
-Function `d` assigned default constructor of `Functor_d`\n
-Function `d_pop` assigned default constructor of `Functor_d_pop`*/
-template <typename Functor_d, typename Functor_d_pop>
-inline demography_population_specific<Functor_d,Functor_d_pop>::demography_population_specific() : pop(0), generation_shift(0) { d = Functor_d(); d_pop = Functor_d_pop(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_d, typename Functor_d_pop>
-inline demography_population_specific<Functor_d,Functor_d_pop>::demography_population_specific(Functor_d d_in, Functor_d_pop d_pop_in, int pop, int generation_shift /*= 0*/) : pop(pop), generation_shift(generation_shift){  d = d_in; d_pop = d_pop_in; }
-/** `if(pop == population) N = d_pop(population, generation-generation_shift)`\n
-	`else N = d(population, generation-generation_shift)` */
-template <typename Functor_d, typename Functor_d_pop>
-__host__ __device__  __forceinline__ int demography_population_specific<Functor_d,Functor_d_pop>::operator()(const int population, const int generation) const{
-	if(pop == population) return d_pop(population, generation-generation_shift);
-	return d(population, generation-generation_shift);
-}
 /* ----- end population specific demography model ----- */
 
 /* ----- piecewise demography model ----- */
@@ -383,23 +454,7 @@ __host__ __device__  __forceinline__ int demography_population_specific<Functor_
    Sim_Model::migration_piecewise<split_pop0_gen1,mig_const_equal> migration_model(m_generation_1,m0,2); //no further migration between groups \endcode
    The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  **/
-/**`inflection_point = 0` \n `generation_shift = 0` \n
-Function `d1` assigned default constructor of `Functor_d1`\n
-Function `d2` assigned default constructor of `Functor_d2`*/
-template <typename Functor_d1, typename Functor_d2>
-inline demography_piecewise<Functor_d1, Functor_d2>::demography_piecewise() : inflection_point(0), generation_shift(0) { d1 = Functor_d1(); d2 = Functor_d2(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_d1, typename Functor_d2>
-inline demography_piecewise<Functor_d1, Functor_d2>::demography_piecewise(Functor_d1 d1_in, Functor_d2 d2_in, int inflection_point, int generation_shift /* = 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { d1 = d1_in; d2 = d2_in; }
-/** `if(generation >= inflection_point+generation_shift) N = d2(population, generation-generation_shift)`\n
-	`else N = d1(population, generation-generation_shift)` */
-template <typename Functor_d1, typename Functor_d2>
-__host__ __device__  __forceinline__ int demography_piecewise<Functor_d1, Functor_d2>::operator()(const int population, const int generation) const{
-	if(generation >= inflection_point+generation_shift){ return d2(population, generation-generation_shift) ; }
-	return d1(population, generation-generation_shift);
-};
 /* ----- end piecewise demography model ----- */
-/* ----- end of demography models ----- */
 
 /** \addtogroup migration
 *  \brief Functions that model migration rates over time (conservative model of migration)
@@ -413,7 +468,7 @@ __host__ __device__  __forceinline__ int demography_piecewise<Functor_d1, Functo
 *
 *  ###Writing your own Migration functions###
 *  These can be functions or functors (or soon, with C++11 support, lambdas). However, the migration function must be of the form:\n
-*  \code __host__ __device__ float your_function(int population_FROM, int population_TO, int generation){ ... return migration_rate; } \endcode
+*  \code __host__ __device__ float your_function(int population_FROM, int population_TO, unsigned int generation){ ... return migration_rate; } \endcode
 *  This returns the rate of migration from population \p population_FROM to population \p population_TO at generation \p generation.
 *  The `__host__` and `__device__` flags are to ensure the nvcc compiler knows the function must be compiled for both the host (CPU) and device (GPU).
 *  Because of these flags, the function must be defined in CUDA source file (*.cu) or declared/defined header file (*.h, *.hpp, *.cuh, etc...) which is included in a CUDA source file.
@@ -422,18 +477,6 @@ __host__ __device__  __forceinline__ int demography_piecewise<Functor_d1, Functo
 *  Statically allocated arrays (e.g. `float f[5]`) are fine.
 */
 
-/* ----- migration models ----- */
-/* ----- constant equal migration model ----- */
-inline migration_constant_equal::migration_constant_equal() : m(0), num_pop(1){ }
-inline migration_constant_equal::migration_constant_equal(float m, int num_pop) : m(m), num_pop(max(num_pop,1)){ }
-/**`if(pop_FROM == pop_TO) mig_rate = 1-(num_pop-1)*m` \n
- * `else mig_rate = m`
- *  */
-__host__ __device__ __forceinline__ float migration_constant_equal::operator()(const int pop_FROM, const int pop_TO, const int generation) const{
-		if(pop_FROM == pop_TO){ return 1-(num_pop-1)*m; }
-		return (num_pop > 1) * m;
-}
-/* ----- end constant equal migration model ----- */
 
 /* ----- constant directional migration model ----- */
 /** \struct migration_constant_directional
@@ -463,20 +506,6 @@ __host__ __device__ __forceinline__ float migration_constant_equal::operator()(c
    Sim_Model::migration_piecewise<split_pop0_gen1,mig_const_equal> migration_model(m_generation_1,m0,2); //no further migration between groups \endcode
    The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  **/
-/**`m = 0` \n `pop1 = 0` \n `pop2 = 0` \n
-Function `rest` assigned default constructor of `Functor_m1`\n*/
-template <typename Functor_m1>
-inline migration_constant_directional<Functor_m1>::migration_constant_directional() : m(0), pop1(0), pop2(0) { rest = Functor_m1(); }
-template <typename Functor_m1>
-inline migration_constant_directional<Functor_m1>::migration_constant_directional(float m, int pop1, int pop2, Functor_m1 rest_in) : m(m), pop1(pop1), pop2(pop2) { rest = rest_in; }
-/**`if(pop_FROM == pop1 && pop_TO == pop2) mig_rate = m` \n
- * `else mig_rate = rest(pop_FROM,pop_TO,generation)`
- *  */
-template <typename Functor_m1>
-__host__ __device__ __forceinline__ float migration_constant_directional<Functor_m1>::operator()(const int pop_FROM, const int pop_TO, const int generation) const{
-	if(pop_FROM == pop1 && pop_TO == pop2) return m;
-	return rest(pop_FROM, pop_TO, generation);
-}
 /* ----- end constant directional migration model ----- */
 
 /* ----- piecewise migration model ----- */
@@ -507,24 +536,14 @@ __host__ __device__ __forceinline__ float migration_constant_directional<Functor
    Sim_Model::migration_piecewise<split_pop0_gen1,mig_const_equal> migration_model(m_generation_1,m0,2); //no further migration between groups \endcode
    The modularity of these functor templates allow parameter models to be extended to any number of populations and piecewise parameter functions (including user defined functions).
  **/
-/**`inflection_point = 0` \n `generation_shift = 0` \n
-Function `m1` assigned default constructor of `Functor_m1`\n
-Function `m2` assigned default constructor of `Functor_m2`*/
-template <typename Functor_m1, typename Functor_m2>
-inline migration_piecewise<Functor_m1,Functor_m2>::migration_piecewise() : inflection_point(0), generation_shift(0) { m1 = Functor_m1(); m2 = Functor_m2(); }
-/** \param generation_shift (optional input) default `0` */
-template <typename Functor_m1, typename Functor_m2>
-inline migration_piecewise<Functor_m1,Functor_m2>::migration_piecewise(Functor_m1 m1_in, Functor_m2 m2_in, int inflection_point, int generation_shift /*= 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { m1 = m1_in; m2 = m2_in; }
-/** `if(generation >= inflection_point+generation_shift) mig_rate = m2(pop_FROM, pop_TO, generation-generation_shift)`\n
-	`else mig_rate = m1(pop_FROM, pop_TO, generation-generation_shift)` */
-template <typename Functor_m1, typename Functor_m2>
-__host__ __device__ __forceinline__ float migration_piecewise<Functor_m1,Functor_m2>::operator()(const int pop_FROM, const int pop_TO, const int generation) const{
-	if(generation >= inflection_point+generation_shift){ return m2(pop_FROM,pop_TO,generation-generation_shift); }
-	return m1(pop_FROM,pop_TO,generation-generation_shift);
-}
 /* ----- end piecewise migration model ----- */
-/* ----- end of migration models ----- */
+}/* ----- end namespace Sim_Model ----- */
 
+/** Namespace contains functions to sample time points in the simulation.
+* \n Use of these functions is optional as users can supply their own, for details on how to write your own simulation functions, go to the <a href="modules.html">Modules</a> page, click on the sample function group, and read its detailed description.
+* \n\n To use Sampling functions and objects, include header file: go_fish.cuh
+ */
+namespace Sampling{
 /** \addtogroup pres_samp
 *  \brief Functions that control at when to flag currently segregating mutations as preserved and when to sample the mutation frequencies
 *
@@ -539,7 +558,7 @@ __host__ __device__ __forceinline__ float migration_piecewise<Functor_m1,Functor
 *  ###Writing your own Preserving and Sampling Functions###
 *  These can be functions or functors (or soon, with C++11 support, lambdas). However, the preserving/sampling function must be of the form:
 *
-*  \code bool your_function(int generation){ ... return true/false; } \endcode
+*  \code bool your_function(unsigned int generation){ ... return true/false; } \endcode
 *  This returns true or false (preserve or not preserve, sample or do not sample) at generation \p generation.
 *  Adding a `__host__` flag is optional, but if done, the function must be defined in CUDA source file (*.cu) or declared/defined header file (*.h, *.hpp, *.cuh, etc...) which is included in a CUDA source file.
 *  If no flag added, function can be defined in a regular C/C++ source file (e.g. *.c, *.cpp).
@@ -547,109 +566,75 @@ __host__ __device__ __forceinline__ float migration_piecewise<Functor_m1,Functor
 */
 
 /* ----- preserving & sampling functions ----- */
-/* ----- bool off ----- */
-__host__ __forceinline__ bool bool_off::operator()(const int generation) const{ return false; }
-/* ----- end bool off ----- */
+/* ----- off ----- */
+__host__ __forceinline__ bool off::operator()(const unsigned int generation) const{ return false; }
+/* ----- end off ----- */
 
-/* ----- bool on ----- */
-__host__ __forceinline__ bool bool_on::operator()(const int generation) const{ return true; }
-/* ----- end bool on ----- */
-
-/* ----- bool pulse_array ----- */
-/* will switch to variadic templates/initializer lists when switching to C++11
-bool_pulse_array::bool_pulse_array(): num_generations(0), generation_start(0) { array = NULL; }
-bool_pulse_array::bool_pulse_array(const bool default_return, const int generation_start, const int num_generations, int generation_pulse...): num_generations(num_generations), generation_start(generation_start) {
-	array = new bool[num_generations];
-	memset(&array, default_return, num_generations*sizeof(bool));
-	array[generation_pulse-generation_start] = !default_return;
-}
-__host__ __forceinline__ bool bool_pulse_array::operator()(const int generation) const {
-	int gen = generation - generation_start;
-	if((gen < 0) | (gen > num_generations)){ fprintf(stderr,"do_array functor generation error,\t generation %d\t shifted generation %d\t array length %d\n",generation,gen,num_generations); exit(1); }
-	return array[gen];
-}
-bool_pulse_array::~bool_pulse_array(){ delete [] array; array = NULL; }*/
-/* ----- end on_off_array ----- */
+/* ----- on ----- */
+__host__ __forceinline__ bool on::operator()(const unsigned int generation) const{ return true; }
+/* ----- end on ----- */
 
 /* ----- bool pulse ----- */
-/** \struct bool_pulse
-* Takes in two template types: the `default` function and the `action` function to be return at generation `pulse`. \n
-* Pulse bool functors can be nested within each other and with piecewise bool functors for a myriad of different sampling and preserving strategies, e.g.:\n\n
-* Sampling strategy that takes time samples of generation 0 & generations [100,110] inclusive (& final generation is always sampled).
+/** \struct pulse
+* Takes in a vector of generations that determines when to flip the return from `default_state` to `!default_state` - turning sampling on or off for those specific generations. \n
+* e.g.:\n\n
+* Sampling strategy that takes time samples of generations 0, 65, & 110 (& final generation is always sampled).
 *
 * \code
-* typedef Sim_Model::bool_off sampling_off;
-* typedef Sim_Model::bool_on sampling_on;
-* typedef Sim_Model::bool_pulse<sampling_off,sampling_on> pulse_on;
-* typedef Sim_Model::bool_piecewise<pulse_on,sampling_on> switch_on;
-* typedef Sim_Model::bool_piecewise<switch_on,sampling_off> switch_off;
-*
-* pulse_on sample_generation_0; //default will pulse on at generation 0
-* switch_on sample_gen_0_100_XX(sample_generation_0,sampling_on(),100); //samples starting generation, will start sampling at generation after 100
-* switch_off sample_gen_0_100_110(sample_gen_0_100_XX,sampling_off(),111); //sampling strategy, will take time samples of generation 0 & generations [100,110] inclusive (& final generation is always sampled)
+* Sampling::pulse sample_gen_0_65_110({0,65,110}); //sampling strategy, will take time samples of generations 0, 65, 110 (& final generation is always sampled)
 * \endcode
 * Note mutations present in these generations will be preserved until the final generation of the simulation.
  **/
-/**`pulse = 0` \n `generation_shift = 0` \n
-Function `f_default` assigned default constructor of `Functor_default`\n
-Function `f_action` assigned default constructor of `Functor_action`*/
-template <typename Functor_default, typename Functor_action>
-inline bool_pulse<Functor_default,Functor_action>::bool_pulse() : pulse(0), generation_shift(0) { f_default = Functor_default(); f_action = Functor_action(); }
-/**Function `f_default` assigned default constructor of `Functor_default`\n
-Function `f_action` assigned default constructor of `Functor_action`\n
-\param generation_shift (optional input) default `0` */
-template <typename Functor_default, typename Functor_action>
-inline bool_pulse<Functor_default,Functor_action>::bool_pulse(int pulse, int generation_shift/*= 0*/) : pulse(pulse), generation_shift(generation_shift) { f_default = Functor_default(); f_action = Functor_action(); }
-/**\param generation_shift (optional input) default `0` */
-template <typename Functor_default, typename Functor_action>
-inline bool_pulse<Functor_default,Functor_action>::bool_pulse(Functor_default f_default_in, Functor_action f_action_in, int pulse, int generation_shift/*= 0*/) : pulse(pulse), generation_shift(generation_shift) { f_default = f_default_in; f_action = f_action_in; }
-/**`if(generation == pulse + generation_shift) b = f_action(generation)` \n
- * `else b = f_default(generation)`
- *  */
-template <typename Functor_default, typename Functor_action>
-__host__ __forceinline__ bool bool_pulse<Functor_default,Functor_action>::operator()(const int generation) const{ if(generation == pulse + generation_shift){ return f_action(generation); } return f_default(generation); }
-/* ----- end bool pulse ----- */
 
-/* ----- bool piecewise ----- */
-/** \struct bool_piecewise
- * Takes in two template types: the function to be returned before the `inflection_point` and the function for after the `inflection_point`. \n
- * Piecewise bool functors can be nested within each other and with pulse bool functors for a myriad of different sampling and preserving strategies, e.g.:\n\n
- * Sampling strategy that takes time samples of generation 0 & generations [100,110] inclusive (& final generation is always sampled).
+/**
+ * \param pulses, vector of generations that determines when to flip the return from `default_state` to `!default_state` - turning sampling on or off for those specific generations. \n
+ * \param start_generation, shifts generation in operator by start_generation (generation-start_generation), useful for starting a new simulation from the results of a previous allele_trajectory as it shifts all the values in pulses by a set amount
+ * \param default_state, default boolean (false := sample off, true := sample on)
+ *  */
+inline pulse::pulse(std::vector<unsigned int> pulses, unsigned int start_generation /*= 0*/, bool default_state /*= false*/) : pulses(pulses), start_generation(start_generation), default_state(default_state) {}
+__host__ __forceinline__ bool pulse::operator()(const unsigned int generation) const{
+	auto shift_gen = generation - start_generation;
+	for(auto gen : pulses){
+		if(gen == shift_gen){ return !default_state; }
+		if(gen > shift_gen){ return default_state; }
+	}
+	return default_state;
+}
+/* ----- end pulse ----- */
+
+/* ----- intervals ----- */
+/** \struct intervals
+ * Takes in a vector of generations that determines when to flip the `current_state` to `!current_state` - turning sampling on or off for those and subsequent generations. \n
+ * e.g.:\n\n
+ * Sampling strategy that takes time samples of generation 0 & all generations [65,110] inclusive (& final generation is always sampled).
  *
  * \code
-    typedef Sim_Model::bool_off sampling_off;
-	typedef Sim_Model::bool_on sampling_on;
-	typedef Sim_Model::bool_pulse<sampling_off,sampling_on> pulse_on;
-	typedef Sim_Model::bool_piecewise<pulse_on,sampling_on> switch_on;
-	typedef Sim_Model::bool_piecewise<switch_on,sampling_off> switch_off;
-
-	pulse_on sample_generation_0; //default will pulse on at generation 0
-	switch_on sample_gen_0_100_XX(sample_generation_0,sampling_on(),100); //samples starting generation, will start sampling at generation after 100
-	switch_off sample_gen_0_100_110(sample_gen_0_100_XX,sampling_off(),111); //sampling strategy, will take time samples of generation 0 & generations [100,110] inclusive (& final generation is always sampled)
+ Sampling::intervals sample_gen_0_65_110({1,65,111},0,true); //sampling strategy, will take time samples of generation 0 & generations [65,110] inclusive (& final generation is always sampled)
  * \endcode
+ * Sampling starts on at generation 0, turns off at generation 1 through generation 64, turns back on generation 65, and off again after generation 111 (& final generation is always sampled). \n
  * Note mutations present in these generations will be preserved until the final generation of the simulation.
  **/
-/**`inflection_point = 0` \n `generation_shift = 0` \n
-Function `f1` assigned default constructor of `Functor_first`\n
-Function `f2` assigned default constructor of `Functor_second`*/
-template <typename Functor_first, typename Functor_second>
-inline bool_piecewise<Functor_first,Functor_second>::bool_piecewise() : inflection_point(0), generation_shift(0) { f1 = Functor_first(); f2 = Functor_second(); }
-/**Function `f1` assigned default constructor of `Functor_first`\n
-Function `f2` assigned default constructor of `Functor_second`
-\param generation_shift (optional input) default `0` */
-template <typename Functor_first, typename Functor_second>
-inline bool_piecewise<Functor_first,Functor_second>::bool_piecewise(int inflection_point, int generation_shift /*= 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { f1 = Functor_first(); f2 = Functor_second(); }
-/**\param generation_shift (optional input) default `0` */
-template <typename Functor_first, typename Functor_second>
-inline bool_piecewise<Functor_first,Functor_second>::bool_piecewise(Functor_first f1_in, Functor_second f2_in, int inflection_point, int generation_shift /*= 0*/) : inflection_point(inflection_point), generation_shift(generation_shift) { f1 = f1_in; f2 = f2_in; }
-/**`if(generation >= inflection_point+generation_shift)  b = f2(generation)` \n
- * `else b = f1(generation)`
+/**
+ * \param change_points, vector of generations that determines when to flip `current_state` to `!current_state` - turning sampling on or off for those and subsequent generations. \n
+ * \param start_generation, shifts generation in operator by start_generation (generation-start_generation), useful for starting a new simulation from the results of a previous allele_trajectory as it shifts all the values in pulses by a set amount
+ * \param start_state, whether sampling starts in the on or off state (false := sample off, true := sample on)
  *  */
-template <typename Functor_first, typename Functor_second>
-__host__ __forceinline__ bool bool_piecewise<Functor_first,Functor_second>::operator()(const int generation) const{ if(generation >= inflection_point+generation_shift){ return f2(generation); } return f1(generation); }
-/* ----- end bool piecewise ----- */
-/* ----- end of preserving & sampling functions ----- */
+inline intervals::intervals(std::vector<unsigned int> change_points, unsigned int start_generation /*= 0*/, bool start_state /*= false*/) : change_points(change_points), start_generation(start_generation), start_state(start_state) {}
+__host__ __forceinline__ bool intervals::operator()(const unsigned int generation) const{
+	bool current_state = start_state;
+	auto shift_gen = generation - start_generation;
+	for(auto gen : change_points){
+		if(gen <= shift_gen){
+			current_state = !current_state;
+			if(gen == shift_gen){ return current_state; }
+		}
+		if(gen > shift_gen){ return current_state; }
+	}
+	return current_state;
+}
+/* ----- end intervals ----- */
+} /* ----- end namespace Sampling ----- */
 
-}/* ----- end namespace Sim_Model ----- */
+
 
 #endif /* TEMPLATE_INLINE_SIMULATION_FUNCTORS_CUH_ */

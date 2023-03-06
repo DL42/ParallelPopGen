@@ -18,158 +18,193 @@
 #define GO_FISH_DATA_H_
 
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string>
-#include <sstream>
-#include <cstring>
-
-//!\cond
-namespace Spectrum_details{ class transfer_allele_trajectories; } //for passing data to SPECTRUM functions
-//!\endcond
+#include <memory>
+#include <vector>
+#include <tuple>
+#include <limits>
+#include "../3P/span.hpp"
+#include "../3P/_internal/ppp_types.hpp"
 
 namespace GO_Fish{
 
-/* ----- sim result output ----- */
+/* ----- sim result input/output ----- */
 //!structure specifying the ID for a mutation in a GO_Fish simulation
 struct mutID{
-	int origin_generation; /**<\brief generation in which mutation appeared in simulation */ /**<\t*/
-	int origin_population; /**<\brief population in which mutation first arose */ /**<\t*/
-	int origin_threadID;/**<\brief threadID that generated mutation */ /**<\t*/
-    int reserved; /**<\brief reserved for later use, currently 0 */ /**<\t*/
-
-    //!default constructor
-    inline mutID();
-
-    //!constructor
-	inline mutID(int origin_generation, int origin_population, int origin_threadID, int reserved);
-
-    //!returns a string constant of mutID
-    inline std::string toString();
-    //!\copydoc GO_Fish::mutID::toString()
-    inline std::string toString() const;
+	unsigned int origin_generation; /**<\brief generation in which mutation appeared in simulation */ /**<\t*/
+	unsigned int origin_population; /**<\brief population in which mutation first arose */ /**<\t*/
+	unsigned int origin_threadID;/**<\brief threadID that generated mutation */ /**<\t*/
+	unsigned int reserved; /**<\brief reserved for later use, currently 0 */ /**<\t*/
 };
 
-//!control and output data structure for GO_Fish simulation
+//!enum specifying type of compact: compact_all fixed and lost mutations, only compact_losses, only compact_fixations, and turn compact_off
+enum class compact_scheme{ compact_all, compact_losses, compact_fixations, compact_off };
+
+//!specification of simulation constants
+struct sim_constants{
+	unsigned int seed1{0xbeeff00d}; /**<\brief random number seed 1 of 2 */ /**< default: 0xbeeff00d */
+	unsigned int seed2{0xdecafbad}; /**<\brief random number seed 2 of 2 */ /**< default: 0xdecafbad */
+	unsigned int num_generations{0}; /**<\brief number of generations in simulation */ /**< default: 0 */
+	float num_sites{1000}; /**<\brief number of sites in simulation*/ /**<default: 1000*/
+	unsigned int num_populations{1}; /**<\brief number of populations in simulation */ /**< default: 1 */
+	bool init_mse{true}; /**<\brief true: initialize simulation in mutation_selection_equilibrium; false: initialize blank simulation or using previous simulation time sample */ /**< default: true */
+	unsigned int prev_sim_sample{0}; /**<\brief time sample of previous simulation to use for initializing current simulation */ /**< default: 0 */
+	compact_scheme compact_type{compact_scheme::compact_all}; /**<\brief compact scheme used in simulation */ /**< default: compact_all */
+	unsigned int compact_interval{35}; /**<\brief how often to compact the simulation and remove fixed or lost mutations */ /**< default: 35 := compact every 35 generations, must be >= 1 if compact_type != compact_off */
+	int device{-1}; /**<\brief GPU identity to run simulation on, if -1 next available GPU will be assigned */ /**< default: -1 */
+};
+
+//!output data structure for GO_Fish simulation
 struct allele_trajectories{
-	//----- initialization parameters -----
-	//!specification of simulation constants
-	struct sim_constants{
-		int seed1; /**<\brief random number seed 1 of 2 */ /**< default: 0xbeeff00d */
-		int seed2; /**<\brief random number seed 2 of 2 */ /**< default: 0xdecafbad */
-		int num_generations; /**<\brief number of generations in simulation */ /**< default: 0 */
-		float num_sites; /**<\brief number of sites in simulation*/ /**<default: 1000*/
-		int num_populations; /**<\brief number of populations in simulation */ /**< default: 1 */
-		bool init_mse; /**<\brief true: initialize simulation in mutation_selection_equilibrium; false: initialize blank simulation or using previous simulation time sample */ /**< default: true */
-		int prev_sim_sample; /**<\brief time sample of previous simulation to use for initializing current simulation */ /**< overridden by init_mse if init_mse = true \n default: -1 (if init_mse = false, ignore previous simulation & initialize blank simulation) */
-		int compact_interval; /**<\brief how often to compact the simulation and remove fixed or lost mutations */ /**< default: 35 := compact every 35 generations\n compact_interval = 0 turns off compact (mutations will not be removed even if lost or fixed) \n\n **Note:** Changing the compact
-                              * interval will change the result of the simulation run for the same seed numbers. However, these are not independent simulation runs! Changing the compact interval produces new random, but correlated simulation results. */
-		int device; /**<\brief GPU identity to run simulation on, if -1 next available GPU will be assigned */ /**< default: -1 */
-
-		inline sim_constants();
-	};
-
-	sim_constants sim_input_constants; /**<\brief constants for initializing the next simulation */ /**<\t*/
-	//----- end -----
 
 	/**\brief default constructor */ /**\t*/
-	inline allele_trajectories();
+	inline allele_trajectories() noexcept = default;
+
+	inline allele_trajectories(const sim_constants & run_constants, size_t _num_samples);
+
+	template<typename cContainer_sample, typename cContainer_numgen_mut, typename cContainer_pop, typename cContainer_extinct, typename cContainer_allele, typename cContainer_mutID>
+	inline allele_trajectories(const sim_constants & run_constants, const cContainer_sample & sampled_generation, const cContainer_numgen_mut & total_generated_mutations, const cContainer_pop & pop_span_view, const cContainer_extinct & extinct_span_view, const cContainer_allele & allele_span_view, const cContainer_mutID & mutID_span);
+
+	inline void initialize_time_sample(unsigned int sample_index, unsigned int sampled_generation, unsigned int num_mutations, unsigned long total_generated_mutations);
+
+	inline void initialize_time_sample(unsigned int sample_index, unsigned int sampled_generation, unsigned long total_generated_mutations, std::span<const unsigned int> pop_span, std::span<const unsigned int> extinct_span, std::span<const unsigned int> allele_span, std::span<const mutID> mutID_span);
 
 	/**\brief copy constructor */ /**\t*/
 	inline allele_trajectories(const allele_trajectories & in);
 
-	/**\brief copy assignment */ /**\t*/
-	inline allele_trajectories & operator=(allele_trajectories in);
+	/**\brief move constructor */ /**\t*/
+	inline allele_trajectories(allele_trajectories && in) noexcept;
+
+	/**\brief move/copy assignment */ /**\t*/
+	inline allele_trajectories & operator=(allele_trajectories in) noexcept;
+
+	/**\brief swaps data held by this allele_trajectories and in */ /**\t*/
+	inline void swap(allele_trajectories & in) noexcept;
+
+	/**\brief frees memory held in allele_trajectories, resets constants to default */
+	inline void reset() noexcept;
+
+	/**\brief default destructor */
+	inline ~allele_trajectories() noexcept = default;
 
 	/**\brief returns sim_constants of the simulation currently held by allele_trajectories */ /**\t*/
-	inline sim_constants last_run_constants();
+	inline sim_constants last_run_constants() const noexcept;
 
 	/**\brief returns the number of sites in the simulation */ /**\t*/
-	inline int num_sites();
+	inline float num_sites() const noexcept;
 
 	/**\brief returns the number of populations in the simulation */ /**maximum population_index*/
-	inline int num_populations();
+	inline unsigned int num_populations() const noexcept;
 
 	/**\brief returns number of time samples taken during simulation run */ /**maximum sample_index*/
-	inline int num_time_samples();
-
-	/**\brief returns number of reported mutations in the final time sample (maximal number of stored mutations in the allele_trajectories) */ /**maximum mutation_index*/
-	inline int maximal_num_mutations();
-
-	/**\brief number of reported mutations in the time sample \p sample_index */ /**\t*/
-	inline int num_mutations_time_sample(int sample_index);
+	inline unsigned int num_time_samples() const noexcept;
 
 	/**\brief returns final generation of simulation */ /**\t*/
-	inline int final_generation();
+	inline unsigned int final_generation() const;
+
+	/**\brief returns number of reported mutations in the final time sample (maximal number of stored mutations in the allele_trajectories) */ /**maximum mutation_index*/
+	inline unsigned int maximal_num_mutations() const noexcept;
+
+	/**\brief number of reported mutations in the time sample \p sample_index */ /**\t*/
+	inline unsigned int num_mutations_time_sample(unsigned int sample_index) const;
+
+	/**\brief total number of mutations generated in the simulation by time sample \p sample_index */ /**this includes lost, fixed, and segregating mutations \n if compacting is turned off will be equal to num_mutations_time_sample*/
+	inline unsigned long total_generated_mutations_time_sample(unsigned int sample_index) const;
 
 	/**\brief return generation of simulation in the time sample \p sample_index */ /**\t*/
-	inline int sampled_generation(int sample_index);
+	inline unsigned int sampled_generation(unsigned int sample_index) const;
 
 	/**\brief returns whether or not population \p population_index is extinct in time sample \p sample_index */ /**\t*/
-	inline bool extinct(int sample_index, int population_index);
+	inline bool extinct(unsigned int sample_index, unsigned int population_index) const;
 
 	/**\brief returns the effective number of chromosomes of population \p population_index in time sample \p sample_index */ /**\t*/
-	inline int effective_number_of_chromosomes(int sample_index, int population_index);
+	inline unsigned int effective_number_of_chromosomes(unsigned int sample_index, unsigned int population_index) const;
 
 	/**\brief returns the frequency of the mutation at time sample \p sample_index, population \p population_index, mutation \p mutation_index */ /**\t*/
-	inline float frequency(int sample_index, int population_index, int mutation_index);
+	inline unsigned int allele_count(unsigned int sample_index, unsigned int population_index, unsigned int mutation_index) const;
 
 	/**\brief returns the mutation ID at \p mutation_index */ /**\t*/
-	inline mutID mutation_ID(int mutation_index);
+	inline const mutID & mutation_ID(unsigned int mutation_index) const;
 
-	/**\brief deletes a single time sample, \p sample_index */ /**\t*/
-	inline void delete_time_sample(int sample_index);
+	inline std::vector<unsigned int> dump_sampled_generations() const;
 
-	/**\brief deletes all memory held by allele_trajectories, resets constants to default */
-	inline void reset();
+	inline std::vector<unsigned int> dump_num_mutations_samples() const;
 
-	/**\brief destructor */ /**calls reset()*/
-	inline ~allele_trajectories();
+	inline std::vector<unsigned long> dump_total_generated_mutations_samples() const;
 
-	//!\cond
-	friend void swap(allele_trajectories & a, allele_trajectories & b);
+	inline std::span<unsigned int> popsize_span(unsigned int sample_index);
 
-	friend std::ostream & operator<<(std::ostream & stream, allele_trajectories & A);
+	inline std::span<const unsigned int> popsize_span(unsigned int sample_index) const;
 
-	template <typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_preserve, typename Functor_timesample>
-	friend void run_sim(allele_trajectories & all_results, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding FI, const Functor_dominance dominance, const Functor_preserve preserve_mutations, const Functor_timesample take_sample, const allele_trajectories & prev_sim);
+	inline std::vector<std::span<const unsigned int>> popsize_view() const;
 
-	friend class Spectrum_details::transfer_allele_trajectories;
-	//!\endcond
+	inline std::vector<std::vector<unsigned int>> dump_popsize() const;
+
+	inline std::span<unsigned int> extinct_span(unsigned int sample_index);
+
+	inline std::span<const unsigned int> extinct_span(unsigned int sample_index) const;
+
+	inline std::vector<std::span<const unsigned int>> extinct_view() const;
+
+	inline std::vector<std::vector<unsigned int>> dump_extinct() const;
+
+	inline std::span<unsigned int> allele_count_span(unsigned int sample_index, unsigned int start_population_index = 0, unsigned int num_contig_pop = 0);
+
+	inline std::span<const unsigned int> allele_count_span(unsigned int sample_index, unsigned int start_population_index = 0, unsigned int num_contig_pop = 0) const;
+
+	inline std::vector<std::span<const unsigned int>> allele_count_view() const;
+
+	inline std::vector<std::vector<unsigned int>> dump_allele_counts() const;
+
+	inline std::vector<std::vector<std::vector<unsigned int>>> dump_padded_allele_counts() const;
+
+	inline std::span<mutID> mutID_span() noexcept;
+
+	inline std::span<const mutID> mutID_span() const noexcept;
+
+	inline std::vector<mutID> dump_mutID() const;
+
 private:
 
 	struct time_sample{
-		float * mutations_freq; //allele frequency of mutations in final generation
-		bool * extinct; //extinct[pop] == true, flag if population is extinct by time sample
-		int * Nchrom_e; //effective number of chromosomes in each population
-		int num_mutations; //number of mutations in frequency array (columns array length for freq)
-		int sampled_generation; //number of generations in the simulation at point of sampling
-
-		time_sample();
-		~time_sample();
+		ppp::unique_host_span<unsigned int> mutations_freq; //allele counts of mutations in sampled generation
+		ppp::unique_host_span<unsigned int> extinct; //extinct[pop] > 0 if population is extinct by time sample, 0 still alive
+		ppp::unique_host_span<unsigned int> Nchrom_e; //effective number of chromosomes in each population
+		unsigned int num_mutations; //number of mutations in frequency array (columns array length for freq)
+		unsigned int sampled_generation; //number of generations in the simulation at point of sampling
+		unsigned long total_generated_mutations; //total number of generated mutations at point of sampling (including those compacted away)
 	};
 
-	inline void initialize_run_constants();
-
-	inline void initialize_sim_result_vector(int new_length);
-
-	sim_constants sim_run_constants; //stores constants of the simulation run currently held by time_samples
-	time_sample ** time_samples; //the actual allele trajectories output from the simulation
-	int num_samples; //number of time samples taken from the simulation
-	mutID * mutations_ID; //unique ID for each mutation in simulation
-	int all_mutations; //number of mutations in mutation ID array - maximal set of mutations stored in allele_trajectories
+	sim_constants sim_run_constants; //stores the simulation input constants of the results currently held by allele_trajectories
+	ppp::unique_host_span<time_sample> time_samples; //the allele trajectories, sample generation, and population information for each time sample from the simulation
+	ppp::unique_host_span<mutID> mutations_ID; //unique ID for each mutation in simulation
 }; /**< Stores the constants, mutation IDs (mutID), and time samples of a simulation run. Each time sample holds the frequencies of each mutation at the time the sample was taken, the size of each population in chromosomes and which population were extinct for a time sample, the number of mutations in the sample, and of which simulation generation is the sample. Data is accessed through the member functions. **/
 
 /**\brief insertion operator: sends `mutID id` into the `ostream stream` */
 inline std::ostream & operator<<(std::ostream & stream, const mutID & id);
 
+/**\brief insertion operator: sends `compact_scheme ctype` into the `ostream stream` */
+inline std::ostream & operator<<(std::ostream & stream, const compact_scheme & ctype);
+
+/**\brief insertion operator: sends `sim_constants constants` into the `ostream stream` */
+inline std::ostream & operator<<(std::ostream & stream, const sim_constants & constants);
+
 //! insertion operator: sends `allele_trajectories A` into the `ostream stream`
-inline std::ostream & operator<<(std::ostream & stream, allele_trajectories & A);
+inline std::ostream & operator<<(std::ostream & stream, const allele_trajectories & A);
 
-/**\brief swaps data held by allele_trajectories a and b */ /**\t*/
-inline void swap(allele_trajectories & a, allele_trajectories & b);
+/**\brief extraction operator: sends `istream stream` into the `mutID id` */
+inline std::istream & operator>>(std::istream & stream, mutID & id);
 
-/* ----- end sim result output ----- */
+/**\brief extraction operator: sends `istream stream` into the `sim_constants constants` */
+inline std::istream & operator>>(std::istream & stream, sim_constants & constants);
+
+//! extraction operator: sends `istream stream` into the `allele_trajectories A`
+inline std::istream & operator>>(std::istream & stream, allele_trajectories & A);
+
+/**\brief swaps data held by allele_trajectories lhs and rhs */
+inline void swap(allele_trajectories & lhs, allele_trajectories & rhs) noexcept;
+
+/* ----- end sim result input/output ----- */
 
 } /* ----- end namespace GO_Fish ----- */
 

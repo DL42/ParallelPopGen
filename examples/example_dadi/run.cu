@@ -6,118 +6,65 @@
 
 #include "go_fish.cuh"
 #include "spectrum.h"
-#include <vector>
+#include <chrono>
 
 /*
+ * initial population size of N_ind for pop 0 scales the simulation up or down with small changes in resulting normalized SFS
+ * (the larger the population size, N_ind, the closer the results are to the DaDi diffusion approximation)
+ * since we are comparing shape of SFS, effective per-site mutation rate, mu, and number of sites, num_sites likewise scale the simulation
+ * (although the total number of mutations does affect the variance in the estimation of the SFS)
+ *
  * population 0 starts of in mutation-selection equilibrium at size N_ind
- * population 0 grows to size 2*N_ind at generation 1
- * at generation 0.01*N_ind, population 1 splits off from population 0
- * population 1's initial size is 0.05*N_ind
- * population 1 grows exponentially to size 5*N_ind for 0.09*N_ind generations
+ * population 0 grows to size nu1F*N_ind at generation 1
+ * at generation 2*Tp*N_ind+1, population 1 splits off from population 0
+ * population 1's initial size is nu2B*N_ind
+ * population 1 grows exponentially to size nu2F*N_ind for 2*T*N_ind generations
  *
- * migration between populations is at rate 1/(2*N_ind) starting at generation 0.01*N_ind+1
+ * migration between populations is at rate m/(2*N_ind) starting at generation 2*Tp*N_ind+2
+ * mutation rate per site is at rate mu/(2*N_ind)
  *
- * selection is weakly deleterious (gamma = -4), mutations are co-dominant (h = 0.5), populations are outbred (F = 0)
+ * selection is weakly deleterious (gamma = -4), populations are outbred (F = 0), mutations are co-dominant (h = 0.5)
+ * Sampling::off() means only the last generation is sampled
  */
 
-void run_validation_test(){
-	typedef Sim_Model::demography_constant dem_const;
-	typedef Sim_Model::demography_population_specific<dem_const,dem_const> dem_pop_const;
-	typedef Sim_Model::demography_piecewise<dem_pop_const,dem_pop_const> init_expansion;
-	typedef Sim_Model::demography_exponential_growth exp_growth;
-	typedef Sim_Model::demography_population_specific<dem_const,exp_growth> dem_pop_const_exp;
+auto run_model(float nu1F, float nu2B, float nu2F, float m, float Tp, float T, float N_ind, float num_sites, float mu, unsigned int seed1, unsigned int seed2){
+	using cp = Sim_Model::constant_parameter;
+	using exp_growth = Sim_Model::exponential_generation_parameter;
 
-	typedef Sim_Model::migration_constant_equal mig_const;
-	typedef Sim_Model::migration_constant_directional<mig_const> mig_dir;
-	typedef Sim_Model::migration_constant_directional<mig_dir> mig_split;
-	typedef Sim_Model::migration_piecewise<mig_const,mig_split> split_pop0;
-	float scale_factor = 1.0f;											//entire simulation can be scaled up or down with little to no change in resulting normalized SFS
+	Sim_Model::effective_parameter eff(N_ind,0);
+	unsigned int start_growth = round(2*Tp*N_ind)+1;							//DaDi generations are scaled in units of chromosomes
+	unsigned int num_gens = round(2*T*N_ind)+start_growth;	    				//scale_factor = 1.f, Tp = 0.005, T = 0.045, then num_gens = 1,001 simulation generations => initialize population 0 in MSE @ generation 0, simulate for generation [1,1001]
 
-	GO_Fish::allele_trajectories b;
-	b.sim_input_constants.num_populations = 2; 							//number of populations
-	b.sim_input_constants.num_generations = scale_factor*pow(10.f,3)+1;	//1,000 generations
+	//default population size (population 0) N_ind, generation 0 population 1 starts at size 0, at generation 1 population 0 size changes from N_ind to nu1F*N_ind, at generation start_growth population 1 grows exponentially from nu2B*N_ind to nu2F*N_ind
+	auto demography_model = Sim_Model::make_piecewise_population_specific_model(cp(N_ind),0,1,cp(0),1,0,cp(nu1F*N_ind),start_growth,1,exp_growth(nu2B*N_ind, nu2F*N_ind, start_growth, num_gens));
+	//default is no migration, at generation start_growth population 1 splits off from population 0 and they have constant migration at effective rate m between them thereafter
+	auto migration_model =  Sim_Model::make_piecewise_directional_migration_model(cp(0),start_growth,0,1,cp(1),start_growth+1,0,1,cp(eff(m)),start_growth+1,1,0,cp(eff(m)));
 
-	Sim_Model::F_mu_h_constant codominant(0.5f); 						//dominance (co-dominant)
-	Sim_Model::F_mu_h_constant outbred(0.f); 							//inbreeding (outbred)
-	Sim_Model::F_mu_h_constant mutation(pow(10.f,-9)/scale_factor); 	//per-site mutation rate 10^-9
+	return GO_Fish::run_sim({seed1,seed2,num_gens,num_sites,2,true,0,GO_Fish::compact_scheme::compact_all,35,1}, cp(eff(mu)), demography_model, migration_model, cp(eff(-4.f)), cp(0), cp(0.5), Sampling::off());
+}
 
-	int N_ind = scale_factor*pow(10.f,4);								//initial number of individuals in population
-	dem_const pop0(N_ind);
-	dem_const pop1(0);
-	dem_pop_const gen0(pop0,pop1,1);									//intial population size of N_ind for pop 0 and 0 for pop 1
-	dem_const pop0_final(2*N_ind);
-	dem_pop_const gen1(pop0_final,pop1,1);
-	init_expansion gen_0_1(gen0,gen1,1);								//population 0 grows to size 2*N_ind
-	exp_growth pop1_gen100((log(100.f)/(scale_factor*900.f)),0.05*N_ind,scale_factor*100);
-	dem_pop_const_exp gen100(pop0_final,pop1_gen100,1);					//population 1 grows exponentially from size 0.05*N_ind to 5*N_ind
-	Sim_Model::demography_piecewise<init_expansion,dem_pop_const_exp> demography_model(gen_0_1,gen100,scale_factor*100);
-
-	mig_const no_mig_pop0;
-	mig_dir no_pop1_gen0(0.f,1,1,no_mig_pop0);
-	mig_split create_pop1(1.f,0,1,no_pop1_gen0);						//individuals from population 0 migrate to form population 1
-	split_pop0 migration_split(no_mig_pop0,create_pop1,scale_factor*100);
-	float mig = 1.f/(2.f*N_ind);
-	mig_const mig_prop(mig,b.sim_input_constants.num_populations);		//constant and equal migration between populations
-	Sim_Model::migration_piecewise<split_pop0,mig_const> mig_model(migration_split,mig_prop,scale_factor*100+1);
-
-	float gamma = -4; 													//effective selection
-	Sim_Model::selection_constant weak_del(gamma,demography_model,outbred);
-
-	b.sim_input_constants.compact_interval = 30;						//compact interval
-	b.sim_input_constants.num_sites = 100*2*pow(10.f,7); 				//number of sites
-	int sample_size = 1001;												//number of samples in SFS
-
-	int num_iter = 50;													//number of iterations
+void print_sfs(float nu1F, float nu2B, float nu2F, float m, float Tp, float T, float N_ind, float num_sites, float mu){
+	auto num_iter = 1;															//number of iterations
+	auto sample_size = 1001;													//number of samples in SFS
     Spectrum::SFS my_spectra;
+    GO_Fish::allele_trajectories b;
 
-    cudaEvent_t start, stop;											//CUDA timing functions
-    float elapsedTime;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
+    std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
+    start = std::chrono::high_resolution_clock::now();
 
-	float avg_num_mutations = 0;
-	float avg_num_mutations_sim = 0;
-	std::vector<std::vector<float> > results(num_iter); 				//storage for SFS results
-	for(int j = 0; j < num_iter; j++){ results[j].reserve(sample_size); }
-
-	for(int j = 0; j < num_iter; j++){
-		if(j == num_iter/2){ cudaEventRecord(start, 0); } 				//use 2nd half of the simulations to time simulation runs + SFS creation
-
-		b.sim_input_constants.seed1 = 0xbeeff00d + 2*j; 				//random number seeds
-		b.sim_input_constants.seed2 = 0xdecafbad - 2*j;
-		GO_Fish::run_sim(b, mutation, demography_model, mig_model, weak_del, outbred, codominant, Sim_Model::bool_off(), Sim_Model::bool_off());
+	for(auto j = 0; j < num_iter; j++){
+		b = run_model(nu1F, nu2B, nu2F, m, Tp, T, N_ind, num_sites, mu, 0xbeeff00d + 2*j, 0xdecafbad - 2*j);
 		Spectrum::site_frequency_spectrum(my_spectra,b,0,1,sample_size);
-
-		avg_num_mutations += ((float)my_spectra.num_mutations)/num_iter;
-		avg_num_mutations_sim += b.maximal_num_mutations()/num_iter;
-		for(int i = 0; i < sample_size; i++){ results[j][i] = my_spectra.frequency_spectrum[i]; }
 	}
-
-	elapsedTime = 0;
-	cudaEventRecord(stop, 0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&elapsedTime, start, stop);
-	cudaEventDestroy(start);
-	cudaEventDestroy(stop);
-
-	//output SFS simulation results
-	std::cout<<"SFS :"<<std::endl<< "allele count\tavg# mutations\tstandard dev\tcoeff of variation (aka relative standard deviation)"<< std::endl;
-	for(int i = 1; i < sample_size; i++){
-		double avg = 0;
-		double std = 0;
-		float num_mutations;
-		for(int j = 0; j < num_iter; j++){ num_mutations = b.num_sites() - results[j][0]; avg += results[j][i]/(num_iter*num_mutations); }
-		for(int j = 0; j < num_iter; j++){ num_mutations = b.num_sites() - results[j][0]; std += 1.0/(num_iter-1)*pow(results[j][i]/num_mutations-avg,2); }
-		std = sqrt(std);
-		std::cout<<i<<"\t"<<avg<<"\t"<<std<<"\t"<<(std/avg)<<std::endl;
-	}
-
-	std::cout<<"\nnumber of sites in simulation: "<< b.num_sites() <<"\ncompact interval: "<< b.last_run_constants().compact_interval;
-	std::cout<<"\naverage number of mutations in simulation: "<<avg_num_mutations_sim<<"\naverage number of mutations in SFS: "<<avg_num_mutations<<"\ntime elapsed (ms): "<< 2*elapsedTime/num_iter<<std::endl;
+	
+	end = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double,std::milli> elapsed_ms = end - start;
+	std::cout<<"\nnumber of mutations in simulation: " << b.maximal_num_mutations() << "\nnumber of mutations in SFS: "<< my_spectra.num_mutations <<"\ntime elapsed (ms): "<< elapsed_ms.count()/num_iter << std::endl << std::endl;
+	for(int i = 1; i < sample_size; i++){ std::cout<< my_spectra.frequency_spectrum[i]/my_spectra.num_mutations << std::endl; }
 }
 
 ////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////
 
-int main(int argc, char **argv) { run_validation_test(); }
+int main(int argc, char **argv) { print_sfs(2, 0.05, 5, 1, 0.005, 0.045, 1*pow(10.f,4), 2*pow(10.f,7), 2*pow(10.f,-5)); }

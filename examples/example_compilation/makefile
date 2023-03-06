@@ -16,25 +16,29 @@
 #
 # gpp := Command 'make gpp' calls the makefile makefile_gpp
 #
+# dc := Command 'make dc' calls the makefile makefile_dc
+#
 # .PHONY := Defines 'nvvc', 'gpp', and 'clean' as not true targets (i.e. don't remake executable if can't find files called 'all' or 'clean')
 #
 # clean := Action to perform for command 'make clean'
 # 	Remove all objects and EXEC_FILE from build_path
 #############################
 
-build_path = ../example_compilation
+build_path = ../bin
 EXEC_FILE = GOFish
 
 cpp_object_names = main.o
 cpp_objects = $(addprefix $(build_path)/,$(cpp_object_names))
 
-cuda_object_names = run.o shared.o go_fish_impl.o
+cuda_object_names = run.o 
 cuda_objects = $(addprefix $(build_path)/,$(cuda_object_names))
 
 nvcc: 
 	make -f makefile_nvcc
 gpp:
 	make -f makefile_gpp
+dc:
+	make -f makefile_dc
 
 .PHONY: nvcc gpp clean
 

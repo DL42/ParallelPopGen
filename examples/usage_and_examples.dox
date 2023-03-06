@@ -9,7 +9,7 @@
  *
  * 
  * \section API API Overview
- * Welcome to the manual for the Parallel PopGen Package (3P)! This is a library of CUDA C/C++ APIs for performing population genetics simulations and analyses on the GPU. Using the 3P APIs, complex, powerful, 
+ * Welcome to the manual for the Parallel PopGen Package (3P)! This is a library of CUDA C++ APIs for performing population genetics simulations and analyses on the GPU. Using the 3P APIs, complex, powerful, 
  and fast simulations and analyses can be written in otherwise standard C++ - requiring no knowledge of parallel/GPU programming from the end-user. Below is a brief description of the information found in this manual, organized in the tabs above: 
  * \li <a href="namespaces.html">Namespaces</a> provides all functions and classes related to an API (e.g. GO_Fish). 
  * \li <a href="modules.html">Modules</a> page organizes the Sim_Model namespace into groups of functions (e.g. \ref selection) - each module describes the parameters and output of the function group and how to write custom simulation functions.
@@ -148,16 +148,16 @@
  The information from `a` is then copied to `b` and `a` is subsequently deleted. The information from `b` is then output to a file then to the terminal. \n\n
  * The main purpose of this is to show that simulation parameters can be passed from a standard C++ program to a CUDA program (*.cu), where the GPU-accelerated simulation is run, and then the 
  simulation results in the form of an allele trajectory can be passed back to the C++ program and manipulated. So accelerated simulations can be inserted into any current C/C++ project. go_fish_data_struct.h
- is included in run.h (which is subsequently included in main.cpp).
+ is included in run.h (which is subsequently included in main.cpp). This illustrates how easy it is to integrate the Parallel PopGen APIs, and CUDA code in general, into a current project.
  * \includelineno examples/example_compilation/main.cpp
  * The simulation starts off blank, running a burn-in simulation until equilibrium is reached, then running the scenario of interest.
  * \includelineno examples/example_compilation/run.h
  * The below code for example_compilation/run.cu must also include go_fish.cuh in order to run the simulations as including run.h only includes the GO_Fish data structures. 
  * \includelineno examples/example_compilation/run.cu
  * <B>Pro Tip:</B> A nice thing about CUDA is the flexibility it gives in compiling mixed C/C++ and CUDA programs. Below is an example where the entire program can alternatively be compiled
- by NVCC (the NVIDIA CUDA compiler) - e.g. makefile_nvcc - or by g++ & NVCC where NVCC compiles just the GPU-accelerated portions and then hands the linking over g++ - e.g. makefile_gpp. The master
- makefile controls which is called. This is useful if you are adding the simulation to your own project compiled with a certain compiler that you do not want to change for the code you have written. 
- The CUDA code essentially becomes an accelerated library that you can use in your current project. Master makefile, each line is documented by the top part of the makefile:
+ by NVCC (the NVIDIA CUDA compiler) - e.g. makefile_nvcc - or by g++ & NVCC where NVCC compiles just the GPU-accelerated portions and then hands the linking over g++ - e.g. makefile_gpp or compiling by nvcc if CUDA code is spread across multiple source files, including c++ files terminated in .cpp, in a project being ported to the GPU -e.g. makefile_dc. The master
+ makefile controls which is called. This is especially useful if you are adding the simulation to your own project compiled with a certain compiler that you do not want to change for the code you have written or do not want to alter the structure of the current program. 
+  Master makefile, each line is documented by the top part of the makefile:
  * \includelineno examples/example_compilation/makefile
  * makefile_nvcc, each line is documented by the top part of the makefile:
  * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
@@ -169,4 +169,9 @@
  * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
  * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
  * \includelineno examples/example_compilation/makefile_gpp
+* makefile_dc, each line is documented by the top part of the makefile:
+ * \n\n <B>Tip:</B> The makefile below compiles machine code explicitly for generation 3.0 and 5.2 GPUs and uses just in time (JIT) compilation for everything else (lowest GPU generation which works for 3P is 3.0). Compilation (and program execution) will be faster if compiling for **your specific GPU**.
+ * \n\n e.g. if running a Tesla K20 or Tesla K40, [then the corresponding GPU generation is 3.5](https://developer.nvidia.com/cuda-gpus):  
+ * all the current `--generate-code arch=##,code=##` flags can be deleted and replaced with `--generate-code arch=compute_35,code=sm_35`.
+ * \includelineno examples/example_compilation/makefile_dc
  */

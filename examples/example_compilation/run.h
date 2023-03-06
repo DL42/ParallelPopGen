@@ -9,6 +9,6 @@
 #ifndef RUN_SIM_H_
 #define RUN_SIM_H_
 
-void run_migration_equilibrium_simulation(GO_Fish::allele_trajectories & a, float migration_rate);
+GO_Fish::allele_trajectories run_migration_equilibrium_simulation(float migration_rate);
 
 #endif /* RUN_SIM_H_ */
