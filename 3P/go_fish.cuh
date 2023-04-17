@@ -27,19 +27,19 @@ namespace GO_Fish{
 
 /* ----- go_fish_impl  ----- */
 ///runs a single-locus Wright-Fisher simulation specified by the given simulation functions and sim_constants, storing the results into returned allele_trajectories
-template <typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample, typename Functor_mse = Sim_Model::standard_mse_integrand>
-__host__ allele_trajectories run_sim(sim_constants sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim = allele_trajectories(), Functor_mse = Sim_Model::standard_mse_integrand());
+template <typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample, typename Functor_mse = Sim_Model::standard_mse_integrand, typename Functor_dfe = Sim_Model::DFE<>>
+__host__ allele_trajectories run_sim(sim_constants sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim = allele_trajectories(), Functor_mse = Sim_Model::standard_mse_integrand(), Functor_dfe DFE = Sim_Model::DFE<>{});
 /* ----- end go_fish_impl ----- */
 
 } /* ----- end namespace GO_Fish ----- */
 
-/* ----- importing functor implementations ----- */
-#include "../3P/_internal/template_inline_simulation_functors.cuh"
-/* ----- end importing functor implementations ----- */
-
 /* ----- importing go_fish_impl  ----- */
 #include "../3P/_internal/go_fish_impl.cuh"
 /* ----- end importing go_fish_impl ----- */
+
+/* ----- importing functor implementations ----- */
+#include "../3P/_internal/template_inline_simulation_functors.cuh"
+/* ----- end importing functor implementations ----- */
 
 
 #endif /* GO_FISH_API_H_ */

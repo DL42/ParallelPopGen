@@ -100,9 +100,10 @@ __global__ static void initialize_mse_mutation_arrays(uint * mutations_freq, uin
 	}
 }
 
-__global__ static void add_new_mutation_IDs(uint4 * mutations_ID, const unsigned int prev_mutations_index, const unsigned int new_mutations_index, const unsigned int population, const unsigned int generation){
+template <typename Functor_DFE>
+__global__ static void add_new_mutation_IDs(uint4 * mutations_ID, const unsigned int prev_mutations_index, const unsigned int new_mutations_index, const unsigned int population, const unsigned int generation, Functor_DFE dfe){
 	int myID =  blockIdx.x*blockDim.x + threadIdx.x;
-	for(int id = myID; id < (new_mutations_index-prev_mutations_index); id+= blockDim.x*gridDim.x){ mutations_ID[(prev_mutations_index+id)] = make_uint4(generation,population,id,0); }
+	for(int id = myID; id < (new_mutations_index-prev_mutations_index); id+= blockDim.x*gridDim.x){ mutations_ID[(prev_mutations_index+id)] = make_uint4(generation,population,id,dfe(generation,population,id)); }
 }
 
 __host__ __device__ __forceinline__ float eff_chrom_f(float Nind, float F){ return 2.f*Nind/(1.f+F); }
@@ -685,14 +686,15 @@ __host__ inline void store_time_sample(allele_trajectories & all_results, data_s
 }
 
 //generates new mutation IDs for all mutation generated from generation through the next event generation
-__host__ inline void generate_new_mutation_IDs(data_struct & data, stream_struct & streams){
+template <typename Functor_DFE>
+__host__ inline void generate_new_mutation_IDs(data_struct & data, Functor_DFE dfe, stream_struct & streams){
 	for(auto gen = data.generation; gen <= data.next_event_generation; gen++){
 		auto gen_index = gen-data.start_generation;
 		for(unsigned int pop = 0; pop < data.num_populations; pop++){
 			auto start = data.h_new_mutation_indices[gen_index][pop] + data.mutations_index;
 			auto end = data.h_new_mutation_indices[gen_index][pop+1] + data.mutations_index;
 			if(end > start){
-				add_new_mutation_IDs<<<20,512,0,streams.streams[0]>>>(data.d_mutations_ID.get(), start, end, pop, gen);
+				add_new_mutation_IDs<<<20,512,0,streams.streams[0]>>>(data.d_mutations_ID.get(), start, end, pop, gen, dfe);
 				cudaCheckErrorsAsync(cudaPeekAtLastError(),gen,pop); //keeping the kernels like this single population, single generation, actually seems to be the fastest! multistream, multidimensional kernel calls are no faster and sometimes slower
 			}
 		}
@@ -708,8 +710,8 @@ __host__ inline void migration_selection_drift(data_struct & data, const Functor
 	cudaCheckErrorsAsync(cudaPeekAtLastError(),data.generation,0);
 }
 
-template <typename Functor_mse, typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample>
-__host__ inline allele_trajectories run_sim_impl(sim_constants & sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim){
+template <typename Functor_mse, typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample, typename Functor_dfe>
+__host__ inline allele_trajectories run_sim_impl(sim_constants & sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim, Functor_dfe dfe){
 	check_sim_input_parameters(sim_input_constants, prev_sim);
 
 	//----- initialize simulation structures -----
@@ -731,7 +733,7 @@ __host__ inline allele_trajectories run_sim_impl(sim_constants & sim_input_const
 	//----- simulation steps: generate new mutation IDs; apply migration, selection, drift; advance simulation to the next event generation; compact?; sample? -----
 	while((data.generation+1) <= data.final_generation){ //end of simulation
 		data.generation++;
-		generate_new_mutation_IDs(data, streams);
+		generate_new_mutation_IDs(data, dfe, streams);
 		migration_selection_drift(data, demography, mig_prop, sel_coeff, f_inbred, dominance, streams);
 		data.generation = data.next_event_generation; //if advancing only 1 generation, these two may already be equal to each other
 		std::cout<<data.mutations_index<<"\t"<<data.generation<<std::endl;
@@ -772,10 +774,10 @@ __host__ inline allele_trajectories run_sim_impl(sim_constants & sim_input_const
  * and number of sites in prev_sim are equivalent to those in `sim_input_constants` or an error will be thrown. Default input is a blank simulation (so when starting from mutation-selection-equilbirium or blank simulation, can simply leave the parameter off).
  * If a non-empty prev_sim is provided and init_mse is set to true, an error will be thrown for conflicting input.
 */
-template <typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample, typename Functor_mse>
-__host__ inline allele_trajectories run_sim(sim_constants sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim, Functor_mse){
+template <typename Functor_mutation, typename Functor_demography, typename Functor_migration, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance, typename Functor_timesample, typename Functor_mse, typename Functor_dfe>
+__host__ inline allele_trajectories run_sim(sim_constants sim_input_constants, const Functor_mutation mu_rate, const Functor_demography demography, const Functor_migration mig_prop, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, const Functor_timesample take_sample, const allele_trajectories & prev_sim, Functor_mse, Functor_dfe DFE){
 	details::round_demography<Functor_demography> rounded_demography(demography); //ensures that the demography function returns a round number of individuals, otherwise frequency and other calculations are a bit off
-	return details::run_sim_impl<Functor_mse>(sim_input_constants, mu_rate, rounded_demography, mig_prop, sel_coeff, f_inbred, dominance, take_sample, prev_sim);
+	return details::run_sim_impl<Functor_mse>(sim_input_constants, mu_rate, rounded_demography, mig_prop, sel_coeff, f_inbred, dominance, take_sample, prev_sim, DFE);
 }
 
 } /* ----- end namespace GO_Fish ----- */

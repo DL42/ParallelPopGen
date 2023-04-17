@@ -122,7 +122,8 @@ struct linear_frequency_h_s
 	
 	inline linear_frequency_h_s(); /**<\brief default constructor */ /**<`slope = 0, intercept = 0`*/
 	inline linear_frequency_h_s(float start_parameter, float end_parameter_slope, bool is_slope = false); /**<\brief constructor */ /**<`intercept` := \param start_parameter  && if \param is_slope `slope` := \param end_parameter_slope, else `slope` := \param end_parameter_slope `-` \param start_parameter */
-	__host__ __device__ __forceinline__ float operator()(const unsigned int generation, const unsigned int population, const float freq) const; //!<\copybrief template<typename... Args> Sim_Model::constant_parameter::operator()(Args ...) const
+	template <typename... Args>
+	__host__ __device__ __forceinline__ float operator()(const unsigned int generation, const unsigned int population, const float freq, Args...) const; //!<\copybrief template<typename... Args> Sim_Model::constant_parameter::operator()(Args ...) const
 };
 
 /**\brief function: returns a functor modeling selection as in Robertson, 1955: a coefficient linearly dependent on frequency with slope and intercept determined by effect size \param effect_size and population variance \param variance := `sigma^2` */
@@ -138,11 +139,23 @@ struct hyperbola_frequency_h_s
 	inline hyperbola_frequency_h_s(); /**<\brief default constructor */ /**<co-dominant `A = 0, B = -1, C = 0.5`*/
 	inline hyperbola_frequency_h_s(float A, float B, float C); /**<\brief constructor */ /**<\t*/
 	inline hyperbola_frequency_h_s(linear_frequency_h_s numerator, linear_frequency_h_s denominator); /**<\brief constructor */ /**<\t*/
-	__host__ __device__ __forceinline__ float operator()(const unsigned int generation, const unsigned int population, const float freq) const; //!<\copybrief template<typename... Args> Sim_Model::constant_parameter::operator()(Args ...) const
+	template <typename... Args>
+	__host__ __device__ __forceinline__ float operator()(const unsigned int generation, const unsigned int population, const float freq, Args...) const; //!<\copybrief template<typename... Args> Sim_Model::constant_parameter::operator()(Args ...) const
 };
 
 /**\brief function: returns a functor modeling dominance as in Robertson, 1955: a hyperbola dependent on allele frequency with `A` = 1/8, `B` = 1/2, and `C` = 1/2 */
 hyperbola_frequency_h_s make_robertson_stabilizing_dominance_model();
+
+/**\brief functor: returns the selection coefficient stored in the mutation ID from a DFE, optionally shifted and scaled*/
+struct DFE_s
+{
+	float scale; /**<\brief *reinterpret_cast<float*>(&mutationID.w))*scale + shift */ /**<\t*/
+	float shift;/**<\copybrief Sim_Model::DFE_s::scale */ /**<\t*/
+		
+	inline DFE_s(); /**<\brief default constructor */ /**<no shift = 0, no multiple = 1`*/
+	inline DFE_s(float scale, float shift); /**<\brief constructor */ /**<\t*/
+	__host__ __device__ __forceinline__ float operator()(const unsigned int generation, const unsigned int population, const float freq, const uint4 mutID) const; //!<\copybrief template<typename... Args> Sim_Model::constant_parameter::operator()(Args ...) const
+};
 
 template <typename Default_fun, typename... List>
 auto make_population_specific_evolution_model(Default_fun defaultFun, List... list);
@@ -177,6 +190,18 @@ struct robertson_stabilizing_mse_integrand{
 	robertson_stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop);
 	__host__ __device__ double operator()(double i) const;
 	__host__ __device__ bool neutral() const;
+};
+
+__host__ __device__ __forceinline__ float null_DFE_inv_func(float in);
+
+template <typename DFE_inv_function = decltype(&null_DFE_inv_func)>
+struct DFE{
+	DFE_inv_function inverse_distribution;
+	uint2 seed;
+	
+	inline DFE();
+	inline DFE(unsigned int seed1, unsigned int seed2, DFE_inv_function inverse_distribution);
+	__host__ __device__ __forceinline__ unsigned int operator()(const unsigned int generation, const unsigned int population, const unsigned int tID) const;
 };
 
 //!\cond

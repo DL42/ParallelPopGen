@@ -34,7 +34,7 @@ struct mutID{
 	unsigned int origin_generation; /**<\brief generation in which mutation appeared in simulation */ /**<\t*/
 	unsigned int origin_population; /**<\brief population in which mutation first arose */ /**<\t*/
 	unsigned int origin_threadID;/**<\brief threadID that generated mutation */ /**<\t*/
-	unsigned int reserved; /**<\brief reserved for later use, currently 0 */ /**<\t*/
+	unsigned int DFE_selection; /**<\brief selection parameter defined by DFE, default 0 */ /**<\t*/
 };
 
 //!enum specifying type of compact: compact_all fixed and lost mutations, only compact_losses, only compact_fixations, and turn compact_off

@@ -205,7 +205,8 @@ inline linear_frequency_h_s::linear_frequency_h_s() : slope(0), intercept(0) {}
  */
 inline linear_frequency_h_s::linear_frequency_h_s(float start_parameter, float end_parameter_slope, bool is_slope): intercept(start_parameter), slope(is_slope ? end_parameter_slope : end_parameter_slope - start_parameter) { }
 /** return `slope*freq + intercept` */
-__host__ __device__ __forceinline__ float linear_frequency_h_s::operator()(const unsigned int population, const unsigned int generation, const float freq) const { return slope*freq+intercept; }
+template <typename... Args>
+__host__ __device__ __forceinline__ float linear_frequency_h_s::operator()(const unsigned int population, const unsigned int generation, const float freq, Args...) const { return slope*freq+intercept; }
 /* ----- end linear frequency dependent dominance and selection model ----- */
 
 linear_frequency_h_s make_robertson_stabilizing_selection_model(float effect_size, float variance){
@@ -221,13 +222,22 @@ inline hyperbola_frequency_h_s::hyperbola_frequency_h_s(linear_frequency_h_s num
 	B = -1.f*denominator.intercept/denominator.slope;
 	C = numerator.slope/denominator.slope;
 }
-__host__ __device__ __forceinline__ float hyperbola_frequency_h_s::operator()(const unsigned int generation, const unsigned int population, const float freq) const {
+template <typename... Args>
+__host__ __device__ __forceinline__ float hyperbola_frequency_h_s::operator()(const unsigned int generation, const unsigned int population, const float freq, Args...) const {
 	if(freq == B) return 0.f; //doesn't matter here, normally used for dominance => when freq = B, selection = 0 anyway
 	return A/(freq-B) + C;
 }
 /* ----- end hyperbola frequency dependent dominance and selection model ----- */
 
 hyperbola_frequency_h_s make_robertson_stabilizing_dominance_model(){ return hyperbola_frequency_h_s(1.f/8.f, 1.f/2.f, 1.f/2.f); }
+
+/* ----- return stored DFE selection parameter ----- */
+inline DFE_s::DFE_s() : scale(1), shift(0) {}
+inline DFE_s::DFE_s(float scale, float shift) : scale(scale), shift(shift) {} 
+__host__ __device__ __forceinline__ float DFE_s::operator()(const unsigned int generation, const unsigned int population, const float freq, const uint4 mutationID) const {
+	return (*reinterpret_cast<const float*>(&mutationID.w))*scale + shift;
+}
+/* ----- end return stored DFE selection parameter ----- */
 
 template <typename Default_fun, typename... List>
 auto make_population_specific_evolution_model(Default_fun defaultFun, List... list){ return details::make_master_helper<details::population_specific>(defaultFun, list...); }
@@ -259,6 +269,22 @@ robertson_stabilizing_mse_integrand::robertson_stabilizing_mse_integrand(const F
 }
 __host__ __device__ double robertson_stabilizing_mse_integrand::operator()(double i) const{ return exp(constant*(i*i-i)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
 __host__ __device__ bool robertson_stabilizing_mse_integrand::neutral() const{ return constant==0; }
+
+/* ----- generate selection parameters from DFE ----- */
+__host__ __device__ __forceinline__ float null_DFE_inv_func(float in){ return 0.f; }
+
+template <typename DFE_inv_function>
+inline DFE<DFE_inv_function>::DFE(): seed{0,0}, inverse_distribution(null_DFE_inv_func) {}
+template <typename DFE_inv_function>
+inline DFE<DFE_inv_function>::DFE(unsigned int seed1, unsigned int seed2, DFE_inv_function inverse_distribution): seed{seed1,seed2}, inverse_distribution(inverse_distribution) {}
+template <typename DFE_inv_function>
+__host__ __device__ __forceinline__ unsigned int DFE<DFE_inv_function>::operator()(const unsigned int generation, const unsigned int population, const unsigned int tID) const
+{
+	auto a = RNG::uint_float_01(RNG::Philox(seed, tID, generation, population, 0).x);
+	float s = inverse_distribution(a);
+	return *reinterpret_cast<unsigned int*>(&s);
+}
+/* ----- end generate selection parameters from DFE ----- */
 
 /** \addtogroup selection
 *  \brief Functions that model selection coefficients (\p s) across populations and over time

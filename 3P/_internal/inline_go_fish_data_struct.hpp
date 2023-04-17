@@ -332,8 +332,8 @@ inline std::vector<mutID> allele_trajectories::dump_mutID() const {
 	return mutID_vec;
 }
 
-/** returns `ostream stream` containing mutID formatted: (origin_generation,origin_population,origin_thread,reserved) \n\n Stream can be fed into terminal output, file output, or, if an `iostream`, for extraction with the `>>` operator. */
-inline std::ostream & operator<<(std::ostream & stream, const mutID & id){ stream <<"("<<id.origin_generation<<","<<id.origin_population<<","<<id.origin_threadID<<","<<id.reserved<<")"; return stream; }
+/** returns `ostream stream` containing mutID formatted: (origin_generation,origin_population,origin_thread,DFE_selection) \n\n Stream can be fed into terminal output, file output, or, if an `iostream`, for extraction with the `>>` operator. */
+inline std::ostream & operator<<(std::ostream & stream, const mutID & id){ stream <<"("<<id.origin_generation<<","<<id.origin_population<<","<<id.origin_threadID<<","<<id.DFE_selection<<")"; return stream; }
 
 inline std::ostream & operator<<(std::ostream & stream, const compact_scheme & ctype){
     switch(ctype)
@@ -417,7 +417,7 @@ inline std::ostream & operator<<(std::ostream & stream, const allele_trajectorie
 
 	if(total_mutations == 0){ stream << std::endl << "no mutations stored" << std::endl; return stream; }
 
-	stream << "mutation ID (origin_generation,origin_population,origin_threadID,reserved)";
+	stream << "mutation ID (origin_generation,origin_population,origin_threadID,DFE_selection)";
 	for(int j = 0; j < num_samples; j++){ for(int k = 0; k < num_populations; k++){ stream << "\t" << "allele counts"; } }
 	stream << std::endl;
 
@@ -435,7 +435,7 @@ inline std::ostream & operator<<(std::ostream & stream, const allele_trajectorie
 /** returns `istream stream` after extracting mutID */
 inline std::istream & operator>>(std::istream & stream, mutID & id){
 	char a;
-	stream >> a >> id.origin_generation >> a >> id.origin_population >> a >> id.origin_threadID >> a >> id.reserved >> a;
+	stream >> a >> id.origin_generation >> a >> id.origin_population >> a >> id.origin_threadID >> a >> id.DFE_selection >> a;
 	return stream;
 }
 
