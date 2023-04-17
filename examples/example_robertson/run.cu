@@ -11,7 +11,7 @@
 
 auto run_mse_robertson_model(float effect_size, float variance, float N, float num_sites, float mu, unsigned int seed1, unsigned int seed2){
 	using cp = Sim_Model::constant_parameter;
-	return GO_Fish::run_sim({seed1,seed2,0,num_sites,1}, cp(mu), cp(N), cp(0), Sim_Model::make_stabilizing_selection_model(effect_size,variance), cp(0), Sim_Model::make_stabilizing_dominance_model(), Sampling::off(), GO_Fish::allele_trajectories(), Sim_Model::stabilizing_mse_integrand());
+	return GO_Fish::run_sim({seed1,seed2,0,num_sites,1}, cp(mu), cp(N), cp(0), Sim_Model::make_robertson_stabilizing_selection_model(effect_size,variance), cp(0), Sim_Model::make_robertson_stabilizing_dominance_model(), Sampling::off(), GO_Fish::allele_trajectories(), Sim_Model::robertson_stabilizing_mse_integrand());
 }
 
 void print_mse_robertson_sfs(int sample_size, float effect_size, float variance, float N, float num_sites, float mu){												

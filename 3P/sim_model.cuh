@@ -126,7 +126,7 @@ struct linear_frequency_h_s
 };
 
 /**\brief function: returns a functor modeling selection as in Robertson, 1955: a coefficient linearly dependent on frequency with slope and intercept determined by effect size \param effect_size and population variance \param variance := `sigma^2` */
-linear_frequency_h_s make_stabilizing_selection_model(float effect_size, float variance);
+linear_frequency_h_s make_robertson_stabilizing_selection_model(float effect_size, float variance);
 
 /**\brief functor: models dominance/selection coefficient as a hyperbola dependent on allele frequency */
 struct hyperbola_frequency_h_s
@@ -142,7 +142,7 @@ struct hyperbola_frequency_h_s
 };
 
 /**\brief function: returns a functor modeling dominance as in Robertson, 1955: a hyperbola dependent on allele frequency with `A` = 1/8, `B` = 1/2, and `C` = 1/2 */
-hyperbola_frequency_h_s make_stabilizing_dominance_model();
+hyperbola_frequency_h_s make_robertson_stabilizing_dominance_model();
 
 template <typename Default_fun, typename... List>
 auto make_population_specific_evolution_model(Default_fun defaultFun, List... list);
@@ -169,12 +169,12 @@ struct standard_mse_integrand{
 	__host__ __device__ bool neutral() const;
 };
 
-struct stabilizing_mse_integrand{
+struct robertson_stabilizing_mse_integrand{
 	float constant;
 
-	stabilizing_mse_integrand();
+	robertson_stabilizing_mse_integrand();
 	template <typename Functor_demography, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance>
-	stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop);
+	robertson_stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop);
 	__host__ __device__ double operator()(double i) const;
 	__host__ __device__ bool neutral() const;
 };

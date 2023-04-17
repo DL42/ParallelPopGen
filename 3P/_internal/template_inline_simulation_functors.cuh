@@ -208,7 +208,7 @@ inline linear_frequency_h_s::linear_frequency_h_s(float start_parameter, float e
 __host__ __device__ __forceinline__ float linear_frequency_h_s::operator()(const unsigned int population, const unsigned int generation, const float freq) const { return slope*freq+intercept; }
 /* ----- end linear frequency dependent dominance and selection model ----- */
 
-linear_frequency_h_s make_stabilizing_selection_model(float effect_size, float variance){
+linear_frequency_h_s make_robertson_stabilizing_selection_model(float effect_size, float variance){
 	float e_s = effect_size*effect_size/(2*variance);
 	return linear_frequency_h_s(-1*e_s,2*e_s,true);
 }
@@ -227,7 +227,7 @@ __host__ __device__ __forceinline__ float hyperbola_frequency_h_s::operator()(co
 }
 /* ----- end hyperbola frequency dependent dominance and selection model ----- */
 
-hyperbola_frequency_h_s make_stabilizing_dominance_model(){ return hyperbola_frequency_h_s(1.f/8.f, 1.f/2.f, 1.f/2.f); }
+hyperbola_frequency_h_s make_robertson_stabilizing_dominance_model(){ return hyperbola_frequency_h_s(1.f/8.f, 1.f/2.f, 1.f/2.f); }
 
 template <typename Default_fun, typename... List>
 auto make_population_specific_evolution_model(Default_fun defaultFun, List... list){ return details::make_master_helper<details::population_specific>(defaultFun, list...); }
@@ -250,15 +250,15 @@ standard_mse_integrand::standard_mse_integrand(const Functor_demography dem, con
 __host__ __device__ double standard_mse_integrand::operator()(double i) const{ return exp(-2*N*s*i*((2*h+(1-2*h)*i)*(1-F)+2*F)/(1+F)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
 __host__ __device__ bool standard_mse_integrand::neutral() const{ return s==0; }
 
-stabilizing_mse_integrand::stabilizing_mse_integrand():constant(0) {}
+robertson_stabilizing_mse_integrand::robertson_stabilizing_mse_integrand():constant(0) {}
 template <typename Functor_demography, typename Functor_selection, typename Functor_inbreeding, typename Functor_dominance>
-stabilizing_mse_integrand::stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop) {
+robertson_stabilizing_mse_integrand::robertson_stabilizing_mse_integrand(const Functor_demography dem, const Functor_selection sel_coeff, const Functor_inbreeding f_inbred, const Functor_dominance dominance, unsigned int gen, unsigned int pop) {
 	float N(round(dem(gen,pop))), F(f_inbred(gen,pop)), e_s((max(sel_coeff(gen,pop,1),-1.f) - max(sel_coeff(gen,pop,0),-1.f))/2.f);
 
 	constant = -4*N*e_s*((1-F)/4+F)/(1+F);
 }
-__host__ __device__ double stabilizing_mse_integrand::operator()(double i) const{ return exp(constant*(i*i-i)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
-__host__ __device__ bool stabilizing_mse_integrand::neutral() const{ return constant==0; }
+__host__ __device__ double robertson_stabilizing_mse_integrand::operator()(double i) const{ return exp(constant*(i*i-i)); } //exponent term in integrand is negative inverse, //works for either haploid or diploid, N should be number of individuals, for haploid, F = 1
+__host__ __device__ bool robertson_stabilizing_mse_integrand::neutral() const{ return constant==0; }
 
 /** \addtogroup selection
 *  \brief Functions that model selection coefficients (\p s) across populations and over time
