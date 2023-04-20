@@ -141,7 +141,7 @@ __global__ void migration_selection_drift(uint * mutations_freq, const uint * co
 			auto rng_index = (start_gen-(mutID.x+1U))%4U; //make sure to restart RNG when it was stopped at last event
 			union { uint4 rng; uint rng_arr[4];} my_rng; //because of dynamic indexing will be in CUDA's "local" memory which can be thread-private global memory but will likely be L1/2 cache since it's small enough (hence no performance improvement moving it to shared memory)
 			//----- end -----
-
+			auto active = coalesced_threads();
 			my_rng.rng = RNG::Philox(seed, (mutID.z + 2U), mutID.x, population+num_populations*mutID.y, start_gen-(mutID.x+1U)-rng_index); //min mutID.z is 0, minimum of 2 to avoid conflict with initial_mse and mutation RNG
 			for(auto gen = start_gen; gen <= next_event_generation; ++gen){ //process mutations until next event generation
 				if(rng_index == 0 && gen > start_gen){ my_rng.rng = RNG::Philox(seed, (mutID.z + 2U), mutID.x, population+num_populations*mutID.y, gen-(mutID.x+1U)); } //only call RNG every 4 generations
@@ -153,12 +153,15 @@ __global__ void migration_selection_drift(uint * mutations_freq, const uint * co
 				float mig_total = 0;
 				float i_holder = 0;
 				for(uint pop = 0; pop < num_populations; pop++){
+					//all threads in group must participate in shuffle or it is UB (https://stackoverflow.com/questions/76067411/ensuring-thread-warp-synchronicity-post-volta-independent-thread-scheduling)
+					auto shuffled_freq = active.shfl(i_next,tile_rank-(population-pop)); //active can only be threads 0 to x where x is <= 31 and the most lanes occupied by a valid mutation given the number of populations and also mutations_index
+					if(N == 0) { continue; }
 					float mig_p = pop==population ? 1: mig_prop(gen,pop,population); //proportion of migrants in population from pop in generation gen
 					if(mig_p == 0){ continue; }
 					auto N_pop_prev = dem(gen-1,pop);
 					if(N_pop_prev == 0){ continue; }
 					auto F_pop_prev = f_inbred(gen-1,pop);
-					float i_temp = mig_p*((N/N_pop_prev)*(1.f+F_pop_prev)/(1.f+F))*tile.shfl(i_next,tile_rank-(population-pop));//ensures mutation at frequency x in gen-1,pop is at frequency x in the migrants in population, gen
+					float i_temp = mig_p*((N/N_pop_prev)*(1.f+F_pop_prev)/(1.f+F))*shuffled_freq;//ensures mutation at frequency x in gen-1,pop is at frequency x in the migrants in population, gen
 					if(population != pop){ mig_total += mig_p; i_mig += i_temp; }
 					else{ i_holder = i_temp; }
 				}
@@ -167,16 +170,15 @@ __global__ void migration_selection_drift(uint * mutations_freq, const uint * co
 
 				//----- selection -----
 				auto Nchrom_e = eff_chrom_f(N,F);
+				if(i_mig == 0 || i_mig == Nchrom_e){ i_next = i_mig; continue; }
 				auto freq = i_mig/Nchrom_e;
 				auto s = fmaxf(sel_coeff(gen,population,freq),-1.f); //ensures selection is never lower than -1
 				auto h = dominance(gen,population,freq);
 				auto i_mig_sel = (Nchrom_e*(s*i_mig*i_mig+Nchrom_e*i_mig+(F+h-h*F)*s*i_mig*(Nchrom_e-i_mig)))/(s*i_mig*i_mig+(F+2*h-2*h*F)*s*i_mig*(Nchrom_e-i_mig)+Nchrom_e*Nchrom_e); //expected allele count after selection and migration
-				if(i_mig_sel != 0 && i_mig == 0 && Nchrom_e > 0){ printf("%f\t%f\t%f\n",i_mig_sel,i_mig,Nchrom_e); }
 				//----- end -----
 
 				//----- drift -----
 				i_next = RNG::approx_binom(my_rng.rng_arr[rng_index],i_mig_sel,((Nchrom_e-i_mig_sel)/Nchrom_e)*i_mig_sel,Nchrom_e);
-				if(i_mig == Nchrom_e && i_next != Nchrom_e){ printf("%f\t%f\t%u\t%f\n",i_mig_sel,i_mig,i_next,Nchrom_e); }
 				//----- end -----
 
 				rng_index = (rng_index == 3) ? 0 : rng_index+1; //update rng_index
