@@ -40,8 +40,8 @@ api_path_include = ../../3P
 EXEC_FILE = GOFish
 
 NVCC = nvcc --std=c++14
-CFLAGS = -O2 --use_fast_math --expt-relaxed-constexpr -I $(api_path_include)/ -c
-CODE = --generate-code arch=compute_30,code=sm_30 --generate-code arch=compute_61,code=sm_61 --generate-code arch=compute_30,code=compute_30 --generate-code arch=compute_50,code=compute_50
+CFLAGS = -O3 --use_fast_math --expt-relaxed-constexpr -I $(api_path_include)/ -c
+CODE = --generate-code arch=compute_75,code=sm_75 --generate-code arch=compute_61,code=sm_61 --generate-code arch=compute_30,code=compute_30
 
 object_names = run.o 
 objects = $(addprefix $(build_path)/,$(object_names))
